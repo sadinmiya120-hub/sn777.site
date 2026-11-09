@@ -1,0 +1,50 @@
+[
+  {
+    "trxId": "TRXSYNC101",
+    "amount": 750,
+    "provider": "nagad",
+    "senderPhone": "01899887766",
+    "rawText": "Payment Received. Amount: Tk 750.00. Sender: 01899887766. TxnID: TRXSYNC101. Balance: Tk 18,750.00.",
+    "receivedAt": "2026-09-16T04:41:27.818Z",
+    "claimed": true,
+    "claimedAt": "2026-09-16T04:41:27.818Z",
+    "claimedOrderNo": "DEP_SYNC_101",
+    "claimedByUid": "user_sync_99"
+  },
+  {
+    "trxId": "TRXFLOW901A",
+    "amount": 500,
+    "provider": "bkash",
+    "senderPhone": "01711223344",
+    "rawText": "You have received Tk 500.00 from 01711223344. Ref . Fee Tk 0.00. Balance Tk 25,000.00. TrxID TRXFLOW901A at 15/09/2026 21:40",
+    "receivedAt": "2026-09-16T04:41:09.363Z",
+    "claimed": true,
+    "claimedAt": "2026-09-16T04:41:09.364Z",
+    "claimedOrderNo": "DEP_TEST_FLOW_901",
+    "claimedByUid": "user_flow_test_123"
+  },
+  {
+    "trxId": "TRX_AUTO_9988",
+    "amount": 1000,
+    "provider": "nagad",
+    "senderPhone": "01812345678",
+    "rawText": "Payment Received. Amount: Tk 1,000.00. Sender: 01812345678. TxnID: TRX_AUTO_9988. Balance: Tk 12,500.00.",
+    "receivedAt": "2026-09-16T04:07:34.222Z",
+    "claimed": true,
+    "claimedAt": "2026-09-16T04:07:34.223Z",
+    "claimedOrderNo": "DEP_ORDER_8899",
+    "claimedByUid": "user_pending_123"
+  },
+  {
+    "trxId": "TEST9K38LS92",
+    "amount": 500,
+    "provider": "bkash",
+    "senderPhone": "01712345678",
+    "rawText": "You have received Tk 500.00 from 01712345678. Ref . Fee Tk 0.00. Balance Tk 15,200.00. TrxID TEST9K38LS92 at 15/09/2026 21:05",
+    "receivedAt": "2026-09-16T04:05:48.694Z",
+    "claimed": true,
+    "claimedAt": "2026-09-16T04:06:38.761Z",
+    "claimedOrderNo": "DEP_TEST_1001",
+    "claimedByUid": "test_user_777"
+  }
+]

@@ -1,0 +1,7 @@
+node_modules
+dist
+dist_backup
+dist_test
+patches_backup
+.env
+*.log

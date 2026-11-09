@@ -1,0 +1,26 @@
+{
+  "CxnBwacerMhELVaOS53jGeOz2Mm2": {
+    "uid": "CxnBwacerMhELVaOS53jGeOz2Mm2",
+    "username": "suya12",
+    "balance": "1277.00",
+    "totalDeposited": 500,
+    "approvedDepositsCount": 1,
+    "updatedAt": "2026-10-03T04:18:20.118Z"
+  },
+  "suya12": {
+    "uid": "CxnBwacerMhELVaOS53jGeOz2Mm2",
+    "username": "suya12",
+    "balance": "1277.00",
+    "totalDeposited": 500,
+    "approvedDepositsCount": 1,
+    "updatedAt": "2026-10-03T04:18:20.118Z"
+  },
+  "sohel168": {
+    "uid": "sohel168",
+    "username": "Sohel168",
+    "balance": "0.00",
+    "totalDeposited": 0,
+    "approvedDepositsCount": 0,
+    "updatedAt": "2026-10-03T17:54:03.145Z"
+  }
+}

@@ -1,0 +1,5 @@
+# Cloudflare Pages / Netlify SPA Redirect Rules
+/gopay_notify.php https://sn777-site-864935185164.us-west1.run.app/gopay_notify.php 307
+/callback.php https://sn777-site-864935185164.us-west1.run.app/callback.php 307
+/api/* https://sn777-site-864935185164.us-west1.run.app/api/:splat 200
+/* /index.html 200

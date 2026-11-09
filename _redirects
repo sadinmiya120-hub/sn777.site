@@ -1,0 +1,10 @@
+# Cloudflare Pages / Netlify Reverse Proxy Rules
+/gopay_notify.php https://sn777.site/gopay_notify.php 200
+/callback.php https://sn777.site/callback.php 200
+/notify.php https://sn777.site/notify.php 200
+/gopay_callback.php https://sn777.site/gopay_callback.php 200
+/gopay_pay.php https://sn777.site/gopay_pay.php 200
+/pay.php https://sn777.site/pay.php 200
+/gopay https://sn777.site/gopay 200
+/api/* https://sn777.site/api/:splat 200
+/* /index.html 200
