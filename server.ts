@@ -138,20 +138,56 @@ app.use((req, _res, next) => {
 let firestoreQuotaExceededUntil = 0;
 
 async function getFirestoreDepositsSafe(adminApp: any) {
-  if (Date.now() < firestoreQuotaExceededUntil) {
-    return [];
-  }
   try {
-    const depSnap = await Promise.race([
-      adminApp.firestore().collection("deposits").limit(100).get(),
-      new Promise<any>((_, reject) => setTimeout(() => reject(new Error("firestore timeout")), 800))
-    ]);
-    return depSnap?.docs?.map((d: any) => ({ id: d.id, order_no: d.id, ...d.data() })) || [];
-  } catch (err: any) {
-    if (err?.message?.includes("Quota exceeded") || err?.code === 8 || err?.message?.includes("RESOURCE_EXHAUSTED")) {
-      console.warn("Firestore quota exceeded on deposits, activating circuit breaker for 60s");
-      firestoreQuotaExceededUntil = Date.now() + 60000;
+    const db = getFirestoreDb();
+    const queries = [
+      adminApp.firestore().collection("deposits").orderBy("timestamp", "desc").limit(150).get().catch(() => ({ docs: [] })),
+      db ? db.collection("deposits").orderBy("timestamp", "desc").limit(150).get().catch(() => ({ docs: [] })) : Promise.resolve({ docs: [] })
+    ];
+    const results = await Promise.all(queries);
+    const map = new Map<string, any>();
+    results.forEach((snap: any) => {
+      if (snap && snap.docs) {
+        snap.docs.forEach((d: any) => {
+          map.set(d.id, { id: d.id, order_no: d.id, ...d.data() });
+        });
+      }
+    });
+    
+    if (map.size > 0) {
+      return Array.from(map.values());
     }
+
+    // Fallback: Attempt REST API access
+    try {
+      const dbIds = ["(default)", FS_DB_ID];
+      const projectId = FS_PROJECT_ID;
+      const allDocs: any[] = [];
+      
+      for (const dbId of dbIds) {
+        const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/deposits?pageSize=100`;
+        const response = await fetch(url, { headers: { 'Authorization': 'Bearer ' + (await adminApp.credential.getAccessToken()).token } }).catch(() => null);
+        if (response && response.ok) {
+          const data = await response.json();
+          const docs = data.documents?.map((d: any) => {
+            const id = d.name.split('/').pop();
+            const fields: any = {};
+            for (const k in d.fields) {
+              const valObj = d.fields[k];
+              fields[k] = valObj.stringValue || valObj.integerValue || valObj.doubleValue || valObj.booleanValue;
+            }
+            return { id, order_no: id, ...fields };
+          }) || [];
+          allDocs.push(...docs);
+        }
+      }
+      return allDocs;
+    } catch (restErr) {
+      console.error("Firestore REST API fallback error:", restErr);
+      return [];
+    }
+  } catch (err: any) {
+    console.error("Firestore SDK get deposits error:", err);
     return [];
   }
 }
@@ -184,9 +220,12 @@ if (fs.existsSync(FIREBASE_APPLET_CONFIG_PATH)) {
   } catch (e) {}
 }
 
-const TARGET_FIRESTORE_DATABASE_ID = fbConfig.firestoreDatabaseId || "ai-studio-sn777site-c8c0dbda-551f-4b00-a0b0-12cb12672e48";
 const FS_PROJECT_ID = fbConfig.projectId || "xbet-mobcash";
-const FS_DB_ID = fbConfig.firestoreDatabaseId || TARGET_FIRESTORE_DATABASE_ID;
+// Critical: If project ID is the xbet-mobcash (external), the database ID must be (default). 
+// If it's the studio project, use the generated one. 
+// However, we should also fallback to (default) if the specific one fails.
+const TARGET_FIRESTORE_DATABASE_ID = (FS_PROJECT_ID === "xbet-mobcash") ? "(default)" : (fbConfig.firestoreDatabaseId || "(default)");
+const FS_DB_ID = TARGET_FIRESTORE_DATABASE_ID;
 const FS_API_KEY = fbConfig.apiKey || "AIzaSyAnjT1kOKf0WioVow4gQv63KUjIycn2FWI";
 
 const paymentOrdersCache = new Map<string, { uid: string; username: string; phone: string; amount: number; time: number }>();
@@ -2480,6 +2519,11 @@ async function approveAndCreditDeposit(orderNoInput: string, paidAmountOverride?
       const fsNewBal = (baseBal + amount).toFixed(2);
       updatedBalance = fsNewBal;
 
+      console.log(`[DEBUG-BALANCE] User: ${candidateUid}, Base: ${baseBal}, Adding: ${amount}, New: ${fsNewBal}`);
+      if (amount === 50 && baseBal > 0) {
+        console.warn(`[DEBUG-BALANCE] WARNING: Adding exactly 50 BDT to user ${candidateUid}. Investigating if this is a mistake.`);
+      }
+
       const stats = recalculateUserDepositStats(candidateUid);
       const curDep = stats.totalDeposited;
       const curCount = stats.approvedDepositsCount;
@@ -4036,7 +4080,15 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment"], async (req, res) 
     const minAmount = 200;
     let amount = Math.round(parseFloat(String(rawAmount)) || minAmount);
     if (amount < minAmount) {
-      amount = minAmount;
+      const noticeText = "পেমেন্ট গেটওয়ের লিমিটের সমস্যার কারণে এই মুহূর্তে ছোট এমাউন্ট ডিপোজিট প্রসেস করা যাচ্ছে না। সফল ডিপোজিটের জন্য অনুগ্রহ করে বড় অংকের অ্যামাউন্ট চেষ্টা করুন অথবা কিছুক্ষণ অপেক্ষা করে আবার ট্রাই করুন। ধন্যবাদ সহযোগিতার জন্য!";
+      if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
+        return res.status(400).json({
+          success: false,
+          respCode: "FAIL",
+          tradeMsg: noticeText
+        });
+      }
+      return res.send(renderLimitNoticeHtml(noticeText));
     }
     
     const customOrderNo = String(req.query.order_no || req.body?.order_no || "").trim();
@@ -4093,27 +4145,66 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment"], async (req, res) 
     searchParams.append("sign_type", "MD5");
 
     const nowIso = new Date().toISOString();
+    const formattedPayType = goods_name ? (goods_name.charAt(0).toUpperCase() + goods_name.slice(1).toLowerCase()) : "Nagad";
+    
+    let userBalance = 0;
+    if (adminApp && rawUid) {
+      try {
+        const uDoc = await adminApp.firestore().collection("users").doc(rawUid).get().catch(() => null);
+        if (uDoc && uDoc.exists) {
+          userBalance = uDoc.data()?.balance || uDoc.data()?.wallet || 0;
+        }
+      } catch (e) {}
+    }
+
     const pendingTx: any = {
       id: order_no,
-      order_no,
+      order_no: order_no,
+      orderId: order_no,
+      mch_order_no: order_no,
       uid: rawUid,
       username: username || rawUid,
-      phone,
+      userBalance: userBalance,
+      balance: userBalance,
+      phone: phone || "",
       type: "deposit",
-      amount,
+      amount: amount,
       method: goods_name.toLowerCase(),
+      payType: formattedPayType,
+      pay_type: formattedPayType,
       status: "pending",
       gateway: "gopay",
+      domain: "sn777.site",
       timestamp: nowIso,
       createdAt: nowIso,
-      description: `GoPay ${goods_name} Deposit`
+      submittedAt: nowIso,
+      date: new Date().toLocaleString("en-US", { timeZone: "Asia/Dhaka", month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }),
+      description: `GoPay ${formattedPayType} Deposit`,
+      notifyAdmin: true,
+      manual_approval_allowed: true, 
+      displayAmount: amount, // Added for Admin UI
+      finalAmount: amount,   // Added for Admin UI
+      user_id: rawUid,       // Added for Admin UI
+      server_timestamp: new Date().getTime() 
     };
 
     saveLocalTransaction(pendingTx);
     if (adminApp) {
       const db = adminApp.firestore();
-      db.collection("deposits").doc(order_no).set(pendingTx, { merge: true }).catch(() => {});
-      db.collection("transactions").doc(order_no).set(pendingTx, { merge: true }).catch(() => {});
+      const dbCustom = getFirestoreDb();
+      
+      // Enforced redundancy: Save to BOTH (default) and custom database for maximum admin visibility
+      await Promise.allSettled([
+        db.collection("deposits").doc(order_no).set(pendingTx, { merge: true }),
+        db.collection("transactions").doc(order_no).set(pendingTx, { merge: true }),
+        dbCustom ? dbCustom.collection("deposits").doc(order_no).set(pendingTx, { merge: true }) : Promise.resolve(),
+        dbCustom ? dbCustom.collection("transactions").doc(order_no).set(pendingTx, { merge: true }) : Promise.resolve(),
+        // Also use REST API as a 3rd fallback
+        firestoreRestPatch("deposits", order_no, pendingTx, "(default)"),
+        firestoreRestPatch("deposits", order_no, pendingTx, FS_DB_ID)
+      ]).catch(e => console.error("Firestore save error:", e));
+      
+      console.log(`[Deposit Sync] Order ${order_no} synced to all Firestore databases for Admin visibility.`);
     }
 
     console.log(`[GoPay Gateway Initiate] POST ${GOPAY_API_URL} order ${order_no}, amount ${amount}, method: ${goods_name}`);
@@ -4132,8 +4223,6 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment"], async (req, res) 
       });
 
       const resText = await gopayRes.text();
-      console.log(`[GoPay Response] ${order_no}:`, resText);
-
       let parsedRes: any = null;
       try { parsedRes = JSON.parse(resText); } catch (e) {}
 
@@ -4153,9 +4242,29 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment"], async (req, res) 
           });
         }
         return res.redirect(payUrl);
+      } else {
+        const limitNotice = "পেমেন্ট গেটওয়ের লিমিটের সমস্যার কারণে এই মুহূর্তে ছোট এমাউন্ট ডিপোজিট প্রসেস করা যাচ্ছে না। সফল ডিপোজিটের জন্য অনুগ্রহ করে বড় অংকের অ্যামাউন্ট চেষ্টা করুন অথবা কিছুক্ষণ অপেক্ষা করে আবার ট্রাই করুন। ধন্যবাদ সহযোগিতার জন্য!";
+        if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
+          return res.status(400).json({
+            respCode: "FAIL",
+            success: false,
+            tradeMsg: limitNotice,
+            order_no: order_no
+          });
+        }
+        return res.send(renderLimitNoticeHtml(limitNotice));
       }
     } catch (apiErr: any) {
-      console.warn(`[GoPay API Fallback to Cashier] Order ${order_no}:`, apiErr.message);
+      const limitNotice = "পেমেন্ট গেটওয়ের লিমিটের সমস্যার কারণে এই মুহূর্তে ছোট এমাউন্ট ডিপোজিট প্রসেস করা যাচ্ছে না। সফল ডিপোজিটের জন্য অনুগ্রহ করে বড় অংকের অ্যামাউন্ট চেষ্টা করুন অথবা কিছুক্ষণ অপেক্ষা করে আবার ট্রাই করুন। ধন্যবাদ সহযোগিতার জন্য!";
+      if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
+        return res.status(400).json({
+          respCode: "FAIL",
+          success: false,
+          tradeMsg: limitNotice,
+          order_no: order_no
+        });
+      }
+      return res.send(renderLimitNoticeHtml(limitNotice));
     }
 
     if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
@@ -4189,8 +4298,120 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment"], async (req, res) 
   }
 });
 
+// Helper for rendering Ultra-Modern Deposit Limit / Notice Modal HTML
+function renderLimitNoticeHtml(customMsg?: string): string {
+  const msg = customMsg || "পেমেন্ট গেটওয়ের লিমিটের সমস্যার কারণে এই মুহূর্তে ছোট এমাউন্ট ডিপোজিট প্রসেস করা যাচ্ছে না। সফল ডিপোজিটের জন্য অনুগ্রহ করে বড় অংকের অ্যামাউন্ট চেষ্টা করুন অথবা কিছুক্ষণ অপেক্ষা করে আবার ট্রাই করুন। ধন্যবাদ সহযোগিতার জন্য!";
+  return `<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>পেমেন্ট আপডেট নোটিশ - SN777</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background-color: #030712;
+      background-image: radial-gradient(circle at 50% 30%, #1e293b 0%, #030712 75%);
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+    }
+    .modal-card {
+      background: linear-gradient(165deg, #131b2e 0%, #0d1322 60%, #080c17 100%);
+      border: 1.5px solid rgba(245, 158, 11, 0.4);
+      border-radius: 28px;
+      padding: 32px 24px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(245, 158, 11, 0.2);
+      text-align: center;
+      position: relative;
+      animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.92) translateY(12px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .icon-wrapper {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px auto;
+      box-shadow: 0 0 30px rgba(245, 158, 11, 0.5);
+      font-size: 34px;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 900;
+      color: #fbbf24;
+      margin: 0 0 14px 0;
+      letter-spacing: -0.3px;
+      text-transform: uppercase;
+    }
+    .msg-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 18px 16px;
+      margin-bottom: 24px;
+    }
+    .msg-text {
+      font-size: 13.5px;
+      color: #e2e8f0;
+      font-weight: 600;
+      margin: 0;
+      line-height: 1.65;
+      letter-spacing: 0.1px;
+    }
+    .btn-action {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #00559b 0%, #0077d9 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 18px;
+      padding: 15px 20px;
+      font-size: 14px;
+      font-weight: 900;
+      width: 100%;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 6px 20px rgba(0, 85, 155, 0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: transform 0.15s ease;
+    }
+    .btn-action:active {
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+<body>
+  <div class="modal-card">
+    <div class="icon-wrapper">⚠️</div>
+    <div class="title">পেমেন্ট আপডেট নোটিশ</div>
+    <div class="msg-box">
+      <p class="msg-text">${msg}</p>
+    </div>
+    <a href="/" class="btn-action">← ঠিক আছে (হোমপেজে ফিরে যান)</a>
+  </div>
+</body>
+</html>`;
+}
+
 // Helper for rendering Native Cashier HTML
-function renderCashierHtml(order_no: string, amount: number, method: string, uid: string, walletNum: string = "01793814751"): string {
+function renderCashierHtml(order_no: string, amount: number, method: string, uid: string, walletNum: string = "01996306610"): string {
   const isNagad = String(method).toLowerCase().includes("nagad");
   const brandName = isNagad ? "নগদ (Nagad)" : "বিকাশ (bKash)";
   const brandColor = isNagad ? "#eb1c24" : "#e2136e";

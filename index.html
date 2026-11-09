@@ -234,9 +234,21 @@
                 localStorage.removeItem("sn777_cached_profile_full");
               }
             } catch(e) {}
-          }
         } catch(e) {}
         } catch(e) {}
+      })();
+      </script>
+      <script type="text/javascript">
+        window.firebaseConfig = {
+          apiKey: "AIzaSyAnjT1kOKf0WioVow4gQv63KUjIycn2FWI",
+          authDomain: "xbet-mobcash.firebaseapp.com",
+          databaseURL: "https://xbet-mobcash-default-rtdb.firebaseio.com",
+          projectId: "xbet-mobcash",
+          storageBucket: "xbet-mobcash.firebasestorage.app",
+          messagingSenderId: "777668182207",
+          appId: "1:777668182207:web:c61039ace249deebae460a",
+          firestoreDatabaseId: "(default)"
+        };
       </script>
       <script type="module" crossorigin src="/assets/index-sn777-v13-nagad.js?v=1794215500000"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-C0XgLZC6-v3.css">
@@ -315,7 +327,7 @@ window.showSnDepositModal = function(orderId, trxId, amount, method, walletNumbe
     var trx = trxId || "SGFDGJGG";
     var amt = (parseFloat(amount) || 100).toFixed(0);
     var meth = method ? (method.toUpperCase()) : "BKASH";
-    var wallet = walletNumber || (window._lastDepositWallet || "01793814751");
+    var wallet = walletNumber || (window._lastDepositWallet || "01996306610");
     var nowTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 
     var modalHtml = '<div id="sn777-global-deposit-modal" style="position:fixed;inset:0;z-index:9999999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(2,6,23,0.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-family:system-ui,-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;animation:snFadeIn 0.25s ease-out;">' +
@@ -398,6 +410,43 @@ window.showSnDepositModal = function(orderId, trxId, amount, method, walletNumbe
     };
   } catch(err) {
     console.warn("Modal error:", err);
+  }
+};
+
+window.showSnNoticeModal = function(customMsg) {
+  try {
+    var existing = document.getElementById("sn777-global-notice-modal");
+    if (existing) existing.remove();
+
+    var textMsg = customMsg || "পেমেন্ট গেটওয়ের লিমিটের সমস্যার কারণে এই মুহূর্তে ছোট এমাউন্ট ডিপোজিট প্রসেস করা যাচ্ছে না। সফল ডিপোজিটের জন্য অনুগ্রহ করে বড় অংকের অ্যামাউন্ট চেষ্টা করুন অথবা কিছুক্ষণ অপেক্ষা করে আবার ট্রাই করুন। ধন্যবাদ সহযোগিতার জন্য!";
+
+    var modalHtml = '<div id="sn777-global-notice-modal" style="position:fixed;inset:0;z-index:99999999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(2,6,23,0.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);font-family:system-ui,-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;animation:snFadeIn 0.25s ease-out;">' +
+      '<div style="background:linear-gradient(165deg, #131b2e 0%, #0d1322 60%, #080c17 100%);border-radius:28px;width:100%;max-width:390px;overflow:hidden;padding:28px 24px;position:relative;box-shadow:0 25px 60px -15px rgba(0,0,0,0.7), 0 0 30px rgba(245,158,11,0.2);border:1.5px solid rgba(245,158,11,0.35);text-align:center;">' +
+        '<button id="sn-notice-close-x" style="position:absolute;right:16px;top:16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#94a3b8;font-size:16px;font-weight:bold;transition:all 0.2s;">✕</button>' +
+        '<div style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;box-shadow:0 0 25px rgba(245,158,11,0.45);">' +
+          '<span style="font-size:32px;">⚠️</span>' +
+        '</div>' +
+        '<h3 style="font-size:20px;font-weight:900;color:#fbbf24;margin:0 0 10px 0;letter-spacing:-0.3px;text-transform:uppercase;">পেমেন্ট আপডেট নোটিশ</h3>' +
+        '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:16px;margin:16px 0;text-align:center;">' +
+          '<p style="font-size:13.5px;color:#e2e8f0;font-weight:600;margin:0;line-height:1.65;letter-spacing:0.2px;">' + textMsg + '</p>' +
+        '</div>' +
+        '<button id="sn-notice-close-btn" style="background:linear-gradient(135deg, #00559b 0%, #0077d9 100%);color:#ffffff;border:none;border-radius:16px;padding:14px;font-size:13.5px;font-weight:900;cursor:pointer;box-shadow:0 6px 20px rgba(0,85,155,0.4);width:100%;letter-spacing:0.5px;transition:all 0.2s;text-transform:uppercase;">ঠিক আছে (আমি বুঝতে পেরেছি)</button>' +
+      '</div>' +
+    '</div>';
+
+    var div = document.createElement("div");
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div.firstChild);
+
+    var modal = document.getElementById("sn777-global-notice-modal");
+    var close = function() {
+      if (modal) modal.remove();
+    };
+
+    document.getElementById("sn-notice-close-x").onclick = close;
+    document.getElementById("sn-notice-close-btn").onclick = close;
+  } catch(err) {
+    console.warn("Notice modal error:", err);
   }
 };
 </script>
