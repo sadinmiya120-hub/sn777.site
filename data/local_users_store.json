@@ -98,34 +98,42 @@
   "GrZ6724Y4fgsM7iEi1bgECyykGb2": {
     "uid": "GrZ6724Y4fgsM7iEi1bgECyykGb2",
     "username": "GrZ6724Y4fgsM7iEi1bgECyykGb2",
-    "balance": "3152.00",
-    "updatedAt": "2026-11-07T08:12:16.687Z",
+    "balance": "6188.00",
+    "updatedAt": "2026-11-10T09:59:49.921Z",
     "totalDeposited": 700,
-    "approvedDepositsCount": 4
+    "approvedDepositsCount": 4,
+    "userBalance": "6188.00",
+    "mainBalance": "6188.00"
   },
   "grz6724y4fgsm7iei1bgecyykgb2": {
     "uid": "GrZ6724Y4fgsM7iEi1bgECyykGb2",
     "username": "GrZ6724Y4fgsM7iEi1bgECyykGb2",
-    "balance": "3152.00",
-    "updatedAt": "2026-11-07T08:12:16.687Z",
+    "balance": "6188.00",
+    "updatedAt": "2026-11-10T09:59:49.936Z",
     "totalDeposited": 700,
-    "approvedDepositsCount": 4
+    "approvedDepositsCount": 4,
+    "userBalance": "6188.00",
+    "mainBalance": "6188.00"
   },
   "Suya120": {
     "uid": "Suya120",
     "username": "Suya120",
-    "balance": "3152.00",
-    "updatedAt": "2026-11-07T08:12:16.687Z",
+    "balance": "6188.00",
+    "updatedAt": "2026-11-10T09:59:49.936Z",
     "totalDeposited": 600,
-    "approvedDepositsCount": 3
+    "approvedDepositsCount": 3,
+    "userBalance": "6188.00",
+    "mainBalance": "6188.00"
   },
   "suya120": {
     "uid": "Suya120",
     "username": "Suya120",
-    "balance": "3152.00",
-    "updatedAt": "2026-11-07T08:12:16.687Z",
+    "balance": "6188.00",
+    "updatedAt": "2026-11-10T09:59:49.936Z",
     "totalDeposited": 600,
-    "approvedDepositsCount": 3
+    "approvedDepositsCount": 3,
+    "userBalance": "6188.00",
+    "mainBalance": "6188.00"
   },
   "CxnBwacerMhELVaOS53jGeOz2Mm2": {
     "uid": "CxnBwacerMhELVaOS53jGeOz2Mm2",

@@ -596,7 +596,7 @@ function recalculateUserDepositStats(uid: string): { totalDeposited: number, app
   return { totalDeposited: totalDep, approvedDepositsCount: count };
 }
 
-function updateLocalUserBalance(uidOrUsername: string, newBalance: string | number, amountAdded?: number): any {
+function updateLocalUserBalance(uidOrUsername: string, newBalance: string | number, amountAdded?: number, forceSet: boolean = false): any {
   if (!uidOrUsername) return null;
   const store = getLocalUsersStore();
   const userKey = uidOrUsername.toLowerCase();
@@ -2525,7 +2525,9 @@ async function approveAndCreditDeposit(orderNoInput: string, paidAmountOverride?
       const curLocalBal = getLocalUserBalance(candidateUid);
 
       // Base balance is the maximum confirmed balance across Firestore and local store (never overwrite with stale lower value)
-      const baseBal = Math.max(curLocalBal, curFsBalDefault, curFsBalCustom);
+      const existingLocalBal = extractMaxDocBal(existingLocal);
+      const depDataBal = extractMaxDocBal(depData);
+      const baseBal = Math.max(curLocalBal, curFsBalDefault, curFsBalCustom, existingLocalBal, depDataBal);
       const fsNewBal = (baseBal + amount).toFixed(2);
       updatedBalance = fsNewBal;
 
@@ -4329,19 +4331,18 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
       }
       return res.redirect(gatewayResult.payUrl);
     } else {
-      // Gateway error or Cloudflare origin unreachable (523)
-      console.warn(`[GoPay Pay-in Notice] Gateway returned http ${gatewayResult.httpStatus}, msg: ${gatewayResult.tradeMsg}`);
+      // Gateway limit error (e.g. ORDER_AMT_SINGLE_PEN_LIMIT:400-50001) or origin unreachable
+      // Smoothly redirect API and browser requests to Cashier so 200/300 Tk deposits complete without error
+      console.warn(`[GoPay Pay-in Notice] Gateway returned http ${gatewayResult.httpStatus}, msg: ${gatewayResult.tradeMsg}. Redirecting to Cashier.`);
 
       if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
-        // For API clients, return rich response with fallback cashier URL
         return res.json({
-          respCode: gatewayResult.httpStatus === 523 ? "GATEWAY_UNREACHABLE" : "FAIL",
-          success: false,
-          tradeMsg: gatewayResult.tradeMsg,
-          httpStatus: gatewayResult.httpStatus,
-          order_no: order_no,
-          fallbackUrl: fallbackUrl,
-          directCashier: true
+          respCode: "SUCCESS",
+          success: true,
+          tradeMsg: "Cashier Fallback",
+          payUrl: fallbackUrl,
+          pay_url: fallbackUrl,
+          order_no: order_no
         });
       }
 
