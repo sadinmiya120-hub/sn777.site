@@ -270,5 +270,13 @@
     "updatedAt": "2026-11-06T08:51:17.354Z",
     "totalDeposited": 0,
     "approvedDepositsCount": 0
+  },
+  "test_user_101": {
+    "uid": "test_user_101",
+    "username": "test_user_101",
+    "balance": "1277.00",
+    "updatedAt": "2026-11-10T08:44:58.364Z",
+    "totalDeposited": 0,
+    "approvedDepositsCount": 0
   }
 }

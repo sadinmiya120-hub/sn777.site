@@ -7,7 +7,7 @@ if (empty($rawData)) {
 }
 
 $signParams = $rawData;
-unset($signParams['sign'], $signParams['signType'], $signParams['sign_type']);
+unset($signParams['sign'], $signParams['signType']);
 ksort($signParams);
 
 $signStr = "";

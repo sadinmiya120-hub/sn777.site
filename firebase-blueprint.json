@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered player or user on SN777 gaming portal",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique user ID" },
+        "username": { "type": "string", "description": "Player username" },
+        "phone": { "type": "string", "description": "Bangladeshi phone number" },
+        "balance": { "type": "number", "description": "Current wallet balance in BDT" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["uid", "username"]
+    },
+    "Deposit": {
+      "title": "Deposit",
+      "description": "Deposit transaction record for GoPay Pay-in gateway",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique transaction ID" },
+        "order_no": { "type": "string", "description": "Merchant order reference (mch_order_no)" },
+        "mch_order_no": { "type": "string", "description": "Merchant order reference matching GoPay spec" },
+        "uid": { "type": "string", "description": "User identifier who initiated the deposit" },
+        "username": { "type": "string", "description": "Username of the player" },
+        "amount": { "type": "number", "description": "Deposit amount in BDT (trade_amount)" },
+        "pay_type": { "type": "string", "enum": ["2201", "2202"], "description": "Payment channel: 2201 (Nagad) or 2202 (bKash)" },
+        "goods_name": { "type": "string", "enum": ["BKASH", "NAGAD"], "description": "Payment method string" },
+        "method": { "type": "string", "description": "Method identifier bkash or nagad" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "cancelled"], "description": "Deposit status" },
+        "gateway": { "type": "string", "description": "Payment gateway provider (gopay)" },
+        "tradeNo": { "type": "string", "description": "GoPay transaction ID returned by gateway" },
+        "order_date": { "type": "string", "description": "Datetime string in YYYY-MM-DD HH:MM:SS format" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "ISO timestamp" }
+      },
+      "required": ["order_no", "amount", "status"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "General ledger entry for deposit, withdrawal, or bet",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique transaction ID" },
+        "uid": { "type": "string", "description": "User identifier" },
+        "type": { "type": "string", "enum": ["deposit", "withdrawal", "bonus", "game"], "description": "Transaction category" },
+        "amount": { "type": "number", "description": "Amount in BDT" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "completed"], "description": "Transaction status" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Timestamp" }
+      },
+      "required": ["id", "type", "amount", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Stores user profiles and wallet balances"
+    },
+    "/deposits/{orderNo}": {
+      "schema": "Deposit",
+      "description": "Stores GoPay pay-in deposit records and callback status"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "General transaction ledger"
+    }
+  }
+}

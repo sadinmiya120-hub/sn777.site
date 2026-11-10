@@ -533,6 +533,8 @@ try {
 
 if (fs.existsSync("index.html")) {
   try {
+    if (!fs.existsSync("dist")) fs.mkdirSync("dist", { recursive: true });
+    if (!fs.existsSync("dist_backup")) fs.mkdirSync("dist_backup", { recursive: true });
     fs.copyFileSync("index.html", "dist/index.html");
     fs.copyFileSync("index.html", "dist_backup/index.html");
   } catch (e) {}

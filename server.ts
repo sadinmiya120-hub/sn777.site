@@ -66,7 +66,17 @@ import {
   type VerifiedSmsPoolItem,
   type SmsSettings
 } from "./sms_verifier.ts";
-
+import {
+  GOPAY_APP_ID,
+  GOPAY_SECRET_KEY,
+  GOPAY_API_URL,
+  generateCleanOrderId,
+  formatGoPayOrderDate,
+  generateGoPaySign,
+  calculateGoPaySignDetails,
+  buildGoPayPayload,
+  sendGoPayCaptureRequest
+} from "./gopay_gateway.ts";
 // Process safety
 process.on("uncaughtException", (err) => {
   console.error("[Server Process Uncaught Exception]:", err);
@@ -4028,57 +4038,171 @@ app.post("/api/dismiss-deposit-notification", async (req, res) => {
 
 
 // --- GoPay Payment Gateway Integration (Pay-in) ---
-const GOPAY_APP_ID = process.env.GOPAY_APP_ID || "GP_47479521";
-const GOPAY_SECRET_KEY = process.env.GOPAY_SECRET_KEY || "77a2d3a02360d495a1b07abfe5b196e8";
-const GOPAY_API_URL = "https://mch.go-pay.cyou/pay.php";
+// Capture Endpoint: POST https://mch.go-pay.cyou/pay.php
+// Documentation & Testing UI: /gopay or /admin/gopay
 
-let lastOrderIdTime = 0;
-function generateCleanOrderId(customOrderNo?: string): string {
-  if (customOrderNo && /^ORD\d+$/.test(customOrderNo.trim())) {
-    return customOrderNo.trim();
+// Interactive GoPay Documentation, Testing Portal & Developer Sandbox UI
+app.get(["/gopay", "/admin/gopay", "/developer/gopay", "/gopay-tester"], (req, res) => {
+  return res.send(renderGoPayPortalHtml());
+});
+
+// Calculate GoPay MD5 Hex Validation Signature (API helper)
+app.post("/api/gopay/calculate-sign", (req, res) => {
+  try {
+    const params = req.body?.params || req.body || {};
+    const secretKey = req.body?.secret_key || GOPAY_SECRET_KEY;
+    const { sign, signStr } = calculateGoPaySignDetails(params, secretKey);
+    return res.json({
+      success: true,
+      sign,
+      signStr,
+      sign_type: "MD5"
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
   }
-  let now = Date.now();
-  if (now <= lastOrderIdTime) {
-    now = lastOrderIdTime + 1;
+});
+
+// Send Real/Test Capture Request to GoPay (Capture Endpoint tester)
+app.post("/api/gopay/test-capture", async (req, res) => {
+  try {
+    const {
+      trade_amount,
+      pay_type,
+      goods_name,
+      order_no,
+      mch_return_msg,
+      notify_url,
+      page_url,
+      app_id,
+      secret_key
+    } = req.body || {};
+
+    const payload = buildGoPayPayload({
+      app_id: app_id || GOPAY_APP_ID,
+      secret_key: secret_key || GOPAY_SECRET_KEY,
+      order_no: order_no || generateCleanOrderId(),
+      trade_amount: trade_amount || 500,
+      pay_type: pay_type || "2202",
+      goods_name: goods_name || "BKASH",
+      notify_url: notify_url || "https://sn777.site/gopay_notify.php",
+      page_url: page_url || "https://sn777.site/return",
+      mch_return_msg: mch_return_msg || "test_user_101"
+    });
+
+    const result = await sendGoPayCaptureRequest(payload);
+    return res.json({
+      ...result,
+      sentPayload: payload.fullParams,
+      signStr: payload.signStr,
+      sign: payload.sign
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
   }
-  lastOrderIdTime = now;
-  return `ORD${now}`;
-}
+});
 
-function formatGoPayOrderDate(d: Date = new Date()): string {
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
+// Ping Gateway Health Check
+app.get("/api/gopay/ping", async (req, res) => {
+  try {
+    const start = Date.now();
+    const probe = await fetch(GOPAY_API_URL, {
+      method: "GET",
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(5000)
+    }).catch(e => ({ status: 523, text: () => Promise.resolve(e.message) }));
+    
+    return res.json({
+      httpStatus: probe.status,
+      elapsedMs: Date.now() - start,
+      endpoint: GOPAY_API_URL
+    });
+  } catch (err: any) {
+    return res.json({ httpStatus: 0, error: err.message });
+  }
+});
 
-function generateGoPaySign(params: Record<string, any>, secretKey: string): string {
-  // 1. Omit sign, sign_type, and signType keys
-  // 2. Sort all parameters alphabetically by key (A-Z) using ksort
-  // 3. Format as raw query string: key1=value1&key2=value2 (Omit null or empty parameters)
-  // 4. Append secret merchant key: &key=...
-  // 5. Compute MD5 cryptographic digest hash and convert to lowercase
-  const keys = Object.keys(params)
-    .filter(k => {
-      const lower = k.toLowerCase();
-      return lower !== "sign" && lower !== "sign_type" && lower !== "signtype" && params[k] !== undefined && params[k] !== null && String(params[k]).trim() !== "";
-    })
-    .sort();
-  const signStr = keys.map(k => `${k}=${params[k]}`).join("&") + `&key=${secretKey}`;
-  return crypto.createHash("md5").update(signStr, "utf8").digest("hex").toLowerCase();
-}
+// Return Specifications JSON
+app.get("/api/gopay/specs", (req, res) => {
+  return res.json({
+    endpoint: GOPAY_API_URL,
+    method: "POST",
+    contentType: "application/x-www-form-urlencoded",
+    credentials: {
+      app_id: { description: "Your unique App ID string (e.g., GP_47479521)", value: GOPAY_APP_ID },
+      secret_key: { description: "Your private key. Used to calculate MD5 hashes on backend.", confidential: true }
+    },
+    parameters: [
+      { name: "app_id", type: "String", required: true, description: "Your unique App ID string." },
+      { name: "mch_order_no", type: "String", required: true, description: "Unique order reference generated by your platform." },
+      { name: "trade_amount", type: "Integer", required: true, description: "Transaction volume in BDT (৳)." },
+      { name: "pay_type", type: "String", required: true, description: "Select Channel: 2201 (Nagad) or 2202 (bKash)." },
+      { name: "goods_name", type: "String", required: true, description: "Method string: BKASH or NAGAD." },
+      { name: "notify_url", type: "String", required: true, description: "Callback script URL to receive webhooks on payment." },
+      { name: "page_url", type: "String", required: true, description: "Browser redirect target destination after payment." },
+      { name: "mch_return_msg", type: "String", required: true, description: "Custom metadata returned with callback webhooks." },
+      { name: "order_date", type: "String", required: true, description: "Datetime string in YYYY-MM-DD HH:MM:SS format." },
+      { name: "sign", type: "String", required: true, description: "Calculated MD5 Hex validation signature." },
+      { name: "sign_type", type: "String", required: true, description: "Use: MD5." }
+    ]
+  });
+});
 
+// Simulate Webhook Callback (/gopay_notify.php simulation)
+app.post("/api/gopay/simulate-webhook", async (req, res) => {
+  try {
+    const { order_no, amount, mch_return_msg } = req.body || {};
+    const orderNo = order_no || ("ORD" + Date.now());
+    const tradeAmount = Number(amount) || 500;
+    const tradeNo = "TN" + Date.now();
 
-// Initiate GoPay Deposit (Pay-in)
-app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment"], async (req, res) => {
+    const callbackParams: Record<string, any> = {
+      mchOrderNo: orderNo,
+      mch_order_no: orderNo,
+      amount: String(tradeAmount),
+      trade_amount: String(tradeAmount),
+      tradeResult: "1",
+      tradeNo: tradeNo,
+      trade_no: tradeNo,
+      mch_return_msg: mch_return_msg || "test_user_101",
+      sign_type: "MD5"
+    };
+
+    const sign = generateGoPaySign(callbackParams, GOPAY_SECRET_KEY);
+    callbackParams.sign = sign;
+
+    // Trigger local notify endpoint
+    const notifyRes = await fetch("http://localhost:3000/gopay_notify.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(callbackParams).toString()
+    });
+
+    const notifyText = await notifyRes.text();
+    return res.json({
+      success: notifyText.trim() === "success",
+      gatewayResponse: notifyText,
+      callbackPayload: callbackParams,
+      sign
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Main GoPay Deposit Initiate (Pay-in) Handler
+// POST/GET /pay.php, /gopay_pay.php, /api/create-payment, /api/gopay/pay
+app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", "/api/gopay/deposit"], async (req, res) => {
   try {
     let rawUid = String(req.query.uid || req.body?.uid || req.query.username || req.body?.username || "").trim();
     if (!rawUid) {
       rawUid = "user_" + Date.now();
     }
-
-    const rawAmount = req.query.amount || req.body?.amount || 200;
-    const method = String(req.query.method || req.body?.method || "bkash").trim().toLowerCase();
+    const rawAmount = req.query.amount || req.body?.amount || req.query.trade_amount || req.body?.trade_amount || 200;
+    const rawMethod = String(req.query.method || req.body?.method || req.query.goods_name || req.body?.goods_name || "bkash").trim().toLowerCase();
     const minAmount = 200;
     let amount = Math.round(parseFloat(String(rawAmount)) || minAmount);
+
     if (amount < minAmount) {
       const noticeText = "পেমেন্ট গেটওয়ের লিমিটের সমস্যার কারণে এই মুহূর্তে ছোট এমাউন্ট ডিপোজিট প্রসেস করা যাচ্ছে না। সফল ডিপোজিটের জন্য অনুগ্রহ করে বড় অংকের অ্যামাউন্ট চেষ্টা করুন অথবা কিছুক্ষণ অপেক্ষা করে আবার ট্রাই করুন। ধন্যবাদ সহযোগিতার জন্য!";
       if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
@@ -4090,10 +4214,9 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment"], async (req, res) 
       }
       return res.send(renderLimitNoticeHtml(noticeText));
     }
-    
-    const customOrderNo = String(req.query.order_no || req.body?.order_no || "").trim();
-    const order_no = generateCleanOrderId(customOrderNo);
 
+    const customOrderNo = String(req.query.order_no || req.body?.order_no || req.query.mch_order_no || req.body?.mch_order_no || "").trim();
+    const order_no = generateCleanOrderId(customOrderNo);
     let username = String(req.query.username || req.body?.username || "").trim();
     let phone = String(req.query.phone || req.body?.phone || "").trim();
 
@@ -4109,44 +4232,24 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment"], async (req, res) 
       } catch (e) {}
     }
 
-    let pay_type = "2202"; // bKash default
-    let goods_name = "BKASH";
-    if (method.includes("nagad")) {
-      pay_type = "2201";
-      goods_name = "NAGAD";
-    }
+    const isNagad = rawMethod.includes("nagad") || String(req.query.pay_type || req.body?.pay_type) === "2201";
+    const pay_type = isNagad ? "2201" : "2202";
+    const goods_name = isNagad ? "NAGAD" : "BKASH";
+    const formattedPayType = isNagad ? "Nagad" : "Bkash";
 
-    const order_date = formatGoPayOrderDate();
-    const returnUrl = `https://sn777.site/return?order_no=${encodeURIComponent(order_no)}`;
-    const notifyUrl = `https://sn777.site/gopay_notify.php`;
-
-    const gopayParams: Record<string, any> = {
-      app_id: GOPAY_APP_ID,
-      mch_order_no: order_no,
-      trade_amount: String(amount), 
-      pay_type: pay_type,
-      goods_name: goods_name,
-      notify_url: notifyUrl,
-      page_url: returnUrl,
-      mch_return_msg: String(rawUid).substring(0, 32),
-      order_date: order_date,
-      sign_type: "MD5"
-    };
-
-    const gopaySign = generateGoPaySign(gopayParams, GOPAY_SECRET_KEY);
-
-    const searchParams = new URLSearchParams();
-    Object.keys(gopayParams).sort().forEach(key => {
-      if (key !== "sign" && key !== "sign_type") {
-        searchParams.append(key, String(gopayParams[key]));
-      }
+    // Build the GoPay signed payload according to exact documentation:
+    // app_id, mch_order_no, trade_amount (int), pay_type, goods_name, notify_url, page_url, mch_return_msg, order_date, sign, sign_type
+    const gopayPayload = buildGoPayPayload({
+      order_no,
+      trade_amount: amount,
+      pay_type,
+      goods_name,
+      notify_url: "https://sn777.site/gopay_notify.php",
+      page_url: "https://sn777.site/return?order_no=" + encodeURIComponent(order_no),
+      mch_return_msg: String(rawUid).substring(0, 32)
     });
-    searchParams.append("sign", gopaySign);
-    searchParams.append("sign_type", "MD5");
 
     const nowIso = new Date().toISOString();
-    const formattedPayType = goods_name ? (goods_name.charAt(0).toUpperCase() + goods_name.slice(1).toLowerCase()) : "Nagad";
-    
     let userBalance = 0;
     if (adminApp && rawUid) {
       try {
@@ -4171,7 +4274,8 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment"], async (req, res) 
       amount: amount,
       method: goods_name.toLowerCase(),
       payType: formattedPayType,
-      pay_type: formattedPayType,
+      pay_type: pay_type,
+      goods_name: goods_name,
       status: "pending",
       gateway: "gopay",
       domain: "sn777.site",
@@ -4181,111 +4285,76 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment"], async (req, res) 
       date: new Date().toLocaleString("en-US", { timeZone: "Asia/Dhaka", month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }),
       description: `GoPay ${formattedPayType} Deposit`,
       notifyAdmin: true,
-      manual_approval_allowed: true, 
-      displayAmount: amount, // Added for Admin UI
-      finalAmount: amount,   // Added for Admin UI
-      user_id: rawUid,       // Added for Admin UI
-      server_timestamp: new Date().getTime() 
+      manual_approval_allowed: true,
+      displayAmount: amount,
+      finalAmount: amount,
+      user_id: rawUid,
+      sign: gopayPayload.sign,
+      server_timestamp: Date.now()
     };
 
     saveLocalTransaction(pendingTx);
     if (adminApp) {
       const db = adminApp.firestore();
       const dbCustom = getFirestoreDb();
-      
-      // Enforced redundancy: Save to BOTH (default) and custom database for maximum admin visibility
       await Promise.allSettled([
         db.collection("deposits").doc(order_no).set(pendingTx, { merge: true }),
         db.collection("transactions").doc(order_no).set(pendingTx, { merge: true }),
         dbCustom ? dbCustom.collection("deposits").doc(order_no).set(pendingTx, { merge: true }) : Promise.resolve(),
         dbCustom ? dbCustom.collection("transactions").doc(order_no).set(pendingTx, { merge: true }) : Promise.resolve(),
-        // Also use REST API as a 3rd fallback
         firestoreRestPatch("deposits", order_no, pendingTx, "(default)"),
         firestoreRestPatch("deposits", order_no, pendingTx, FS_DB_ID)
       ]).catch(e => console.error("Firestore save error:", e));
-      
-      console.log(`[Deposit Sync] Order ${order_no} synced to all Firestore databases for Admin visibility.`);
+
+      console.log(`[GoPay Deposit Sync] Order ${order_no} synced to Firestore.`);
     }
 
-    console.log(`[GoPay Gateway Initiate] POST ${GOPAY_API_URL} order ${order_no}, amount ${amount}, method: ${goods_name}`);
+    console.log(`[GoPay Pay-in Initiate] POST ${GOPAY_API_URL} order ${order_no}, amount ${amount}, method: ${goods_name}`);
 
-    const fallbackUrl = `/cashier.php?order_no=${encodeURIComponent(order_no)}&amount=${encodeURIComponent(amount)}&method=${encodeURIComponent(method)}&uid=${encodeURIComponent(rawUid)}`;
+    // Dispatch request to GoPay capture endpoint
+    const gatewayResult = await sendGoPayCaptureRequest(gopayPayload);
+    const fallbackUrl = `/cashier.php?order_no=${encodeURIComponent(order_no)}&amount=${encodeURIComponent(amount)}&method=${encodeURIComponent(rawMethod)}&uid=${encodeURIComponent(rawUid)}`;
 
-    try {
-      const gopayRes = await fetch(GOPAY_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        },
-        body: searchParams.toString(),
-        signal: AbortSignal.timeout(15000)
-      });
-
-      const resText = await gopayRes.text();
-      let parsedRes: any = null;
-      try { parsedRes = JSON.parse(resText); } catch (e) {}
-
-      const isSuccess = parsedRes?.respCode === "SUCCESS";
-      const payUrl = parsedRes?.payUrl || parsedRes?.pay_url || parsedRes?.payInfo || parsedRes?.url;
-
-      if (isSuccess && payUrl) {
-        if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
-          return res.json({
-            respCode: "SUCCESS",
-            success: true,
-            tradeMsg: parsedRes?.tradeMsg || "request success",
-            payUrl: payUrl,
-            pay_url: payUrl,
-            tradeNo: parsedRes?.tradeNo || "",
-            order_no: order_no
-          });
-        }
-        return res.redirect(payUrl);
-      } else {
-        const limitNotice = "পেমেন্ট গেটওয়ের লিমিটের সমস্যার কারণে এই মুহূর্তে ছোট এমাউন্ট ডিপোজিট প্রসেস করা যাচ্ছে না। সফল ডিপোজিটের জন্য অনুগ্রহ করে বড় অংকের অ্যামাউন্ট চেষ্টা করুন অথবা কিছুক্ষণ অপেক্ষা করে আবার ট্রাই করুন। ধন্যবাদ সহযোগিতার জন্য!";
-        if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
-          return res.status(400).json({
-            respCode: "FAIL",
-            success: false,
-            tradeMsg: limitNotice,
-            order_no: order_no
-          });
-        }
-        return res.send(renderLimitNoticeHtml(limitNotice));
-      }
-    } catch (apiErr: any) {
-      const limitNotice = "পেমেন্ট গেটওয়ের লিমিটের সমস্যার কারণে এই মুহূর্তে ছোট এমাউন্ট ডিপোজিট প্রসেস করা যাচ্ছে না। সফল ডিপোজিটের জন্য অনুগ্রহ করে বড় অংকের অ্যামাউন্ট চেষ্টা করুন অথবা কিছুক্ষণ অপেক্ষা করে আবার ট্রাই করুন। ধন্যবাদ সহযোগিতার জন্য!";
+    if (gatewayResult.success && gatewayResult.payUrl) {
       if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
-        return res.status(400).json({
-          respCode: "FAIL",
-          success: false,
-          tradeMsg: limitNotice,
+        return res.json({
+          respCode: "SUCCESS",
+          success: true,
+          tradeMsg: gatewayResult.tradeMsg || "request success",
+          payUrl: gatewayResult.payUrl,
+          pay_url: gatewayResult.payUrl,
+          tradeNo: gatewayResult.tradeNo || "",
           order_no: order_no
         });
       }
-      return res.send(renderLimitNoticeHtml(limitNotice));
-    }
+      return res.redirect(gatewayResult.payUrl);
+    } else {
+      // Gateway error or Cloudflare origin unreachable (523)
+      console.warn(`[GoPay Pay-in Notice] Gateway returned http ${gatewayResult.httpStatus}, msg: ${gatewayResult.tradeMsg}`);
 
-    if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
-      return res.json({
-        respCode: "SUCCESS",
-        success: true,
-        tradeMsg: "Direct Cashier Fallback",
-        payUrl: fallbackUrl,
-        pay_url: fallbackUrl,
-        order_no: order_no
-      });
-    }
+      if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
+        // For API clients, return rich response with fallback cashier URL
+        return res.json({
+          respCode: gatewayResult.httpStatus === 523 ? "GATEWAY_UNREACHABLE" : "FAIL",
+          success: false,
+          tradeMsg: gatewayResult.tradeMsg,
+          httpStatus: gatewayResult.httpStatus,
+          order_no: order_no,
+          fallbackUrl: fallbackUrl,
+          directCashier: true
+        });
+      }
 
-    return res.send(renderCashierHtml(order_no, amount, method, rawUid));
+      // If browser navigation, smoothly redirect to Cashier so user can complete payment
+      return res.send(renderCashierHtml(order_no, amount, rawMethod, rawUid));
+    }
   } catch (err: any) {
-    console.error("[Cashier Pay Error]:", err);
+    console.error("[GoPay Pay-in Exception]:", err);
     const order_no = req.query?.order_no || req.body?.order_no || ("ORD" + Date.now());
     const amount = parseFloat(req.query?.amount || req.body?.amount || 500) || 500;
     const method = req.query?.method || req.body?.method || "bkash";
     const uid = req.query?.uid || req.body?.uid || "user";
-    
+
     if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
       return res.json({
         respCode: "SUCCESS",
@@ -4404,7 +4473,7 @@ function renderLimitNoticeHtml(customMsg?: string): string {
     <div class="msg-box">
       <p class="msg-text">${msg}</p>
     </div>
-    <a href="/" class="btn-action">← ঠিক আছে (হোমপেজে ফিরে যান)</a>
+    <a href="javascript:history.back()" class="btn-action">← ঠিক আছে (ফিরে যান)</a>
   </div>
 </body>
 </html>`;
@@ -4592,7 +4661,7 @@ function extractCallbackData(req: any): Record<string, any> {
 }
 
 // GoPay Webhook Callback (Pay-in)
-app.all(["/gopay_notify.php"], async (req, res) => {
+app.all(["/gopay_notify.php", "/callback.php", "/notify.php", "/api/gopay-notify", "/api/gopay/notify"], async (req, res) => {
   try {
     const rawData = extractCallbackData(req);
     if (!rawData || Object.keys(rawData).length === 0) {
@@ -4602,10 +4671,12 @@ app.all(["/gopay_notify.php"], async (req, res) => {
     // Signature verification per GoPay spec
     const receivedSign = String(rawData.sign || "").toLowerCase().trim();
     
-    // Omit sign and signType from params for signature verification
+    // Omit sign, sign_type, and signType from params for signature verification
     const signParams = { ...rawData };
     delete signParams.sign;
-    delete signParams.signType; // Also check signType as per PHP doc
+    delete signParams.signType;
+    delete signParams.sign_type;
+    delete signParams.signtype;
     
     const calculatedSign = generateGoPaySign(signParams, GOPAY_SECRET_KEY);
 
