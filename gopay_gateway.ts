@@ -2,13 +2,16 @@ import crypto from "crypto";
 
 export const GOPAY_APP_ID = process.env.GOPAY_APP_ID || "GP_47479521";
 export const GOPAY_SECRET_KEY = process.env.GOPAY_SECRET_KEY || "77a2d3a02360d495a1b07abfe5b196e8";
-export const GOPAY_API_URL = "https://mch.go-pay.cyou/pay.php";
+export const GOPAY_BASE_URL = "https://mch.go-pay.cyou";
+export const GOPAY_API_URL = `${GOPAY_BASE_URL}/pay.php`;
+export const GOPAY_BALANCE_URL = `${GOPAY_BASE_URL}/balance_api.php`;
 
 let lastOrderIdTime = 0;
 
 export function generateCleanOrderId(customOrderNo?: string): string {
-  if (customOrderNo && /^ORD\d+$/.test(customOrderNo.trim())) {
-    return customOrderNo.trim();
+  const trimmed = String(customOrderNo || "").trim();
+  if (trimmed && /^[A-Za-z0-9_-]{4,64}$/.test(trimmed)) {
+    return trimmed;
   }
   let now = Date.now();
   if (now <= lastOrderIdTime) {
@@ -51,7 +54,11 @@ export function generateGoPaySign(params: Record<string, any>, secretKey: string
 }
 
 /**
- * Builds the complete signed parameter set for GoPay capture request
+ * Builds the complete signed parameter set for GoPay Pay-in capture request
+ * Parameters per GoPay spec:
+ * app_id, mch_order_no, trade_amount (Integer), pay_type ("2201"|"2202"),
+ * goods_name ("NAGAD"|"BKASH"), notify_url, page_url, mch_return_msg,
+ * order_date ("YYYY-MM-DD HH:MM:SS"), sign, sign_type ("MD5")
  */
 export function buildGoPayPayload(options: {
   app_id?: string;
@@ -65,25 +72,27 @@ export function buildGoPayPayload(options: {
   mch_return_msg?: string;
   order_date?: string;
 }) {
-  const appId = options.app_id || GOPAY_APP_ID;
-  const secretKey = options.secret_key || GOPAY_SECRET_KEY;
-  const orderNo = options.order_no || generateCleanOrderId();
-  const tradeAmount = Math.round(Number(options.trade_amount) || 200);
+  const appId = String(options.app_id || GOPAY_APP_ID).trim();
+  const secretKey = String(options.secret_key || GOPAY_SECRET_KEY).trim();
+  const orderNo = generateCleanOrderId(options.order_no);
+  const parsedTradeAmount = Number(options.trade_amount);
+  const tradeAmount = Number.isFinite(parsedTradeAmount) ? Math.round(parsedTradeAmount) : 200;
 
-  const rawMethod = (options.goods_name || "").toUpperCase();
-  const isNagad = rawMethod.includes("NAGAD") || options.pay_type === "2201";
+  const explicitPayType = String(options.pay_type || "").trim();
+  const rawMethod = String(options.goods_name || "").toUpperCase();
+  const isNagad = explicitPayType === "2201" ? true : (explicitPayType === "2202" ? false : rawMethod.includes("NAGAD"));
 
   const payType = isNagad ? "2201" : "2202";
   const goodsName = isNagad ? "NAGAD" : "BKASH";
-  const notifyUrl = options.notify_url || "https://sn777.site/gopay_notify.php";
-  const pageUrl = options.page_url || `https://sn777.site/return?order_no=${encodeURIComponent(orderNo)}`;
-  const mchReturnMsg = options.mch_return_msg || `user_${Date.now()}`;
-  const orderDate = options.order_date || formatGoPayOrderDate();
+  const notifyUrl = String(options.notify_url || "https://sn777.site/gopay_notify.php").trim();
+  const pageUrl = String(options.page_url || `https://sn777.site/return?order_no=${encodeURIComponent(orderNo)}`).trim();
+  const mchReturnMsg = String(options.mch_return_msg || `user_${Date.now()}`).trim();
+  const orderDate = String(options.order_date || formatGoPayOrderDate()).trim();
 
   const rawParams: Record<string, any> = {
     app_id: appId,
     mch_order_no: orderNo,
-    trade_amount: tradeAmount, // Integer
+    trade_amount: tradeAmount,
     pay_type: payType,
     goods_name: goodsName,
     notify_url: notifyUrl,
@@ -143,29 +152,54 @@ export async function sendGoPayCaptureRequest(payload: ReturnType<typeof buildGo
       parsedJson = JSON.parse(resText);
     } catch (e) {}
 
-    const isSuccess = parsedJson?.respCode === "SUCCESS";
     const payUrl = parsedJson?.payUrl || parsedJson?.pay_url || parsedJson?.payInfo || parsedJson?.url || null;
+    const respCode = String(parsedJson?.respCode || (httpStatus >= 400 ? "FAIL" : "")).trim() || "FAIL";
+    const isSuccess = respCode === "SUCCESS" && Boolean(payUrl);
+    const gatewayOrderNo = parsedJson?.orderNo ? String(parsedJson.orderNo) : null;
+    const gatewayMchOrderNo = parsedJson?.mchOrderNo ? String(parsedJson.mchOrderNo) : null;
+    const tradeNo = parsedJson?.tradeNo
+      ? String(parsedJson.tradeNo)
+      : (gatewayOrderNo || gatewayMchOrderNo || null);
+    const respSign = parsedJson?.sign ? String(parsedJson.sign).toLowerCase() : null;
+    const respSignType = parsedJson?.signType ? String(parsedJson.signType) : "MD5";
+    const signVerified = respSign ? (generateGoPaySign(parsedJson, GOPAY_SECRET_KEY) === respSign) : false;
 
     return {
       success: isSuccess,
+      respCode,
       httpStatus,
       elapsedMs: elapsed,
       rawResponse: resText,
       parsedJson,
       payUrl,
-      tradeNo: parsedJson?.tradeNo || null,
+      pay_url: payUrl,
+      tradeNo,
+      gatewayOrderNo,
+      gatewayMchOrderNo,
+      mchId: parsedJson?.mchId ? String(parsedJson.mchId) : null,
+      signType: respSignType,
+      sign: respSign,
+      signVerified,
       tradeMsg: parsedJson?.tradeMsg || (httpStatus === 523 ? "Cloudflare 523: Origin is unreachable" : `HTTP ${httpStatus}`)
     };
   } catch (err: any) {
     const elapsed = Date.now() - startTime;
     return {
       success: false,
+      respCode: "FAIL",
       httpStatus: 0,
       elapsedMs: elapsed,
       rawResponse: err?.message || String(err),
       parsedJson: null,
       payUrl: null,
+      pay_url: null,
       tradeNo: null,
+      gatewayOrderNo: null,
+      gatewayMchOrderNo: null,
+      mchId: null,
+      signType: "MD5",
+      sign: null,
+      signVerified: false,
       tradeMsg: `Connection error: ${err?.message || "Timeout or unreachable"}`
     };
   }
