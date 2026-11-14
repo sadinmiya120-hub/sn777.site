@@ -4509,7 +4509,7 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
     const goods_name = isNagad ? "NAGAD" : "BKASH";
     const formattedPayType = isNagad ? "Nagad" : "Bkash";
 
-    const minAmount = isNagad ? 200 : 400;
+    const minAmount = isNagad ? 200 : 500;
     const parsedAmount = rawAmountInput !== undefined && rawAmountInput !== null && String(rawAmountInput).trim() !== ""
       ? parseFloat(String(rawAmountInput))
       : minAmount;
@@ -4518,7 +4518,7 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
     if (amount < minAmount) {
       const noticeText = isNagad
         ? "নগদে সর্বনিম্ন ডিপোজিট ২০০ টাকা। অনুগ্রহ করে ২০০ টাকা বা তার বেশি অ্যামাউন্ট দিয়ে চেষ্টা করুন।"
-        : "বিকাশে সর্বনিম্ন ডিপোজিট ৪০০ টাকা। অনুগ্রহ করে ৪০০ টাকা বা তার বেশি অ্যামাউন্ট দিয়ে চেষ্টা করুন।";
+        : "বিকাশে সর্বনিম্ন ডিপোজিট ৫০০ টাকা। অনুগ্রহ করে ৫০০ টাকা বা তার বেশি অ্যামাউন্ট দিয়ে চেষ্টা করুন।";
       if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
         return res.status(400).json({
           success: false,
