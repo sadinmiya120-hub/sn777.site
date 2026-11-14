@@ -42,10 +42,14 @@
     "type": "deposit",
     "createdAt": "2026-11-09T08:38:27.991Z",
     "timestamp": "2026-11-09T08:38:27.991Z",
-    "updatedAt": "2026-11-10T08:44:59.557Z",
-    "approvedAt": "2026-11-10T08:44:59.556Z",
+    "updatedAt": "2026-11-14T06:11:14.219Z",
+    "approvedAt": "2026-11-14T06:11:14.218Z",
     "notified": false,
-    "trxSubmitted": false
+    "trxSubmitted": false,
+    "serverBalanceUpdated": false,
+    "needsClientCredit": false,
+    "clientCreditAmount": 0,
+    "clientCreditApplied": false
   },
   {
     "id": "ORD1794212991250",
@@ -578,10 +582,14 @@
     "type": "deposit",
     "createdAt": "2026-11-05T09:55:21.842Z",
     "timestamp": "2026-11-05T09:55:21.842Z",
-    "updatedAt": "2026-11-10T08:44:57.212Z",
-    "approvedAt": "2026-11-10T08:44:57.211Z",
+    "updatedAt": "2026-11-14T06:11:15.399Z",
+    "approvedAt": "2026-11-14T06:11:15.398Z",
     "notified": false,
-    "trxSubmitted": false
+    "trxSubmitted": false,
+    "serverBalanceUpdated": false,
+    "needsClientCredit": false,
+    "clientCreditAmount": 0,
+    "clientCreditApplied": false
   },
   {
     "id": "ORD1793870355176",
