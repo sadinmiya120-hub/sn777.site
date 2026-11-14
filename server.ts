@@ -4547,12 +4547,21 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
     }
 
     const rawHost = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim();
-    const isLocalHost = !rawHost || rawHost.startsWith("localhost") || rawHost.startsWith("127.0.0.1");
-    const envPublicBase = (process.env.APP_URL || "").replace(/\/+$/, "");
-    const resolvedPageOrigin = !isLocalHost ? `https://${rawHost}` : (envPublicBase && !envPublicBase.includes("ais-dev-") ? envPublicBase : "https://sn777.site");
-    const resolvedNotifyOrigin = (!isLocalHost && !rawHost.includes("ais-dev-")) ? `https://${rawHost}` : "https://sn777.site";
+    const rawOrigin = String(req.headers.origin || req.headers.referer || "").trim();
+    const isAiStudioPreview = rawHost.includes("ais-dev-") || rawHost.includes("ais-pre-") || rawOrigin.includes("ais-dev-") || rawOrigin.includes("ais-pre-");
+    let previewOrigin = "";
+    if (isAiStudioPreview) {
+      if (rawHost.includes("ais-dev-") || rawHost.includes("ais-pre-")) {
+        previewOrigin = `https://${rawHost}`;
+      } else {
+        try { previewOrigin = new URL(rawOrigin).origin; } catch (e) {}
+      }
+    }
 
-    const notify_url = String(req.query.notify_url || req.body?.notify_url || process.env.GOPAY_NOTIFY_URL || `${resolvedNotifyOrigin}/gopay_notify.php`).trim();
+    const primaryDomainOrigin = "https://sn777.site";
+    const resolvedPageOrigin = previewOrigin || primaryDomainOrigin;
+
+    const notify_url = String(req.query.notify_url || req.body?.notify_url || process.env.GOPAY_NOTIFY_URL || `${primaryDomainOrigin}/gopay_notify.php`).trim();
     const page_url = String(req.query.page_url || req.body?.page_url || `${resolvedPageOrigin}/return?order_no=${encodeURIComponent(order_no)}`).trim();
     const mch_return_msg = String(req.query.mch_return_msg || req.body?.mch_return_msg || rawUid).trim().substring(0, 64);
     const order_date = String(req.query.order_date || req.body?.order_date || formatGoPayOrderDate()).trim();
@@ -4614,7 +4623,7 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
       goods_name: goods_name,
       status: "pending",
       gateway: "gopay",
-      domain: rawHost || "sn777.site",
+      domain: previewOrigin ? rawHost : "sn777.site",
       notify_url,
       page_url,
       order_date,
