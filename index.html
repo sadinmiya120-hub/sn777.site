@@ -88,7 +88,9 @@
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link rel="preload" href="/assets/index-C0XgLZC6-v3.css" as="style" />
-    <link rel="modulepreload" href="/assets/index-sn777-v13-nagad.js?v=1794645800000" />
+    <link rel="modulepreload" href="/assets/index-sn777-v13-nagad.js?v=1794689000000" />
+    <link rel="preload" as="image" href="/assets/banners/b1.webp" />
+    <link rel="preload" as="image" href="/assets/banners/b_1794687569963.webp" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
     <title>Sn777.site - Premium Gaming Portal</title>
@@ -240,7 +242,7 @@
           firestoreDatabaseId: "(default)"
         };
       </script>
-      <script type="module" crossorigin src="/assets/index-sn777-v13-nagad.js?v=1794645800000"></script>
+      <script type="module" crossorigin src="/assets/index-sn777-v13-nagad.js?v=1794689000000"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-C0XgLZC6-v3.css">
   <style id="sn777-payment-styles">
 /* EXACT DEPOSIT PAYMENT GATEWAY STYLES MATCHING SCREENSHOT - COMPACT SLIM */
@@ -497,13 +499,13 @@ window.showSnNoticeModal = function(customMsg) {
         });
       }
       try {
-        var APP_VER = "20261101_crash_aviator_v2";
+        var APP_VER = "20261114_banner2_v4";
         if (localStorage.getItem("sn777_app_ver") !== APP_VER) {
           localStorage.setItem("sn777_app_ver", APP_VER);
           if ('caches' in window) {
             caches.keys().then(function(keys) {
               keys.forEach(function(k) {
-                if (k !== "sn777-v29") caches.delete(k);
+                if (k !== "sn777-v29" && !k.startsWith("sn777-v63")) caches.delete(k);
               });
             });
           }

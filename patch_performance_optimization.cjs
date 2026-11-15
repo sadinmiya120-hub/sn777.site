@@ -27,6 +27,7 @@ const swFiles = [
 swFiles.forEach(f => {
   if (!fs.existsSync(f)) return;
   let code = fs.readFileSync(f, 'utf8');
+  if (code.includes('sn777-v60-fast-icons') || code.includes('sn777-v61-local-icons') || code.includes('sn777-v62-instant-icons') || code.includes('sn777-v63-banners')) return;
   
   // Replace CORE_ASSETS list with precached image URLs and bundles
   const precacheStr = JSON.stringify([
@@ -34,7 +35,7 @@ swFiles.forEach(f => {
     "/index.html",
     "/manifest.json",
     "/assets/index-C0XgLZC6-v3.css",
-    "/assets/index-sn777-v13-nagad.js?v=1794130275901",
+    "/assets/index-sn777-v13-nagad.js?v=1794687500000",
     ...providerLogosToPrecache
   ], null, 2);
 
