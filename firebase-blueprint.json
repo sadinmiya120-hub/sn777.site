@@ -9,6 +9,7 @@
         "username": { "type": "string", "description": "Player username" },
         "phone": { "type": "string", "description": "Bangladeshi phone number" },
         "balance": { "type": "number", "description": "Current wallet balance in BDT" },
+        "betRecords": { "type": "array", "description": "Recent game bet history records (Aviator, Crash, Super Ace)" },
         "role": { "type": "string", "enum": ["user", "admin"], "description": "User role" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
       },

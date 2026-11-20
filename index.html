@@ -81,6 +81,58 @@
         }, true);
       })();
     </script>
+    <script type="text/javascript">
+      (function() {
+        var TARGET_SW_VER = "v=1795116000000";
+        var TARGET_CACHE_PREFIX = "sn777-v133";
+        try {
+          if ("caches" in window) {
+            caches.keys().then(function(keys) {
+              keys.forEach(function(k) {
+                if (k.indexOf(TARGET_CACHE_PREFIX) !== 0) caches.delete(k);
+              });
+            }).catch(function() {});
+          }
+          if ("serviceWorker" in navigator && navigator.serviceWorker.getRegistrations) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              regs.forEach(function(reg) {
+                var scriptUrl = (reg.active && reg.active.scriptURL) || (reg.waiting && reg.waiting.scriptURL) || (reg.installing && reg.installing.scriptURL) || "";
+                if (scriptUrl && scriptUrl.indexOf(TARGET_SW_VER) === -1) {
+                  reg.unregister().catch(function() {});
+                }
+              });
+            }).catch(function() {});
+          }
+        } catch(e) {}
+        window.addEventListener("error", function(ev) {
+          try {
+            var msg = (ev && (ev.message || (ev.error && ev.error.message))) || "";
+            if (/SyntaxError|Unexpected token/i.test(msg)) {
+              var guardKey = "sn777_syntax_heal_v124";
+              if (!sessionStorage.getItem(guardKey)) {
+                sessionStorage.setItem(guardKey, "1");
+                var tasks = [];
+                if ("caches" in window) {
+                  tasks.push(caches.keys().then(function(ks) {
+                    return Promise.all(ks.map(function(k) { return caches.delete(k); }));
+                  }));
+                }
+                if ("serviceWorker" in navigator && navigator.serviceWorker.getRegistrations) {
+                  tasks.push(navigator.serviceWorker.getRegistrations().then(function(rs) {
+                    return Promise.all(rs.map(function(r) { return r.unregister(); }));
+                  }));
+                }
+                Promise.all(tasks).finally(function() {
+                  var u = new URL(window.location.href);
+                  u.searchParams.set("_cb", String(Date.now()));
+                  window.location.replace(u.toString());
+                });
+              }
+            }
+          } catch(e) {}
+        }, true);
+      })();
+    </script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="preconnect" href="https://blogger.googleusercontent.com" crossorigin />
     <link rel="dns-prefetch" href="https://blogger.googleusercontent.com" />
@@ -88,7 +140,7 @@
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link rel="preload" href="/assets/index-C0XgLZC6-v3.css" as="style" />
-    <link rel="modulepreload" href="/assets/index-sn777-v13-nagad.js?v=1794689000000" />
+    <link rel="modulepreload" href="/assets/index-sn777-v13-nagad.js?v=1795116000000" />
     <link rel="preload" as="image" href="/assets/banners/b1.webp" />
     <link rel="preload" as="image" href="/assets/banners/b_1794687569963.webp" />
     <meta charset="UTF-8" />
@@ -208,27 +260,36 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
       }
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+      .aspect-square, .aspect-\[4\/3\] {
+        contain: layout style;
+      }
+      img {
+        decoding: async;
+      }
     </style>
       <script type="text/javascript">
-        try {
+        (function() {
           try {
-          ['sn777_username', 'sn777_user_name'].forEach(function(k) {
-            var v = localStorage.getItem(k);
-            if (v === "ব্যবহারকারী" || v === "সম্পূর্ণ নাম" || v === "User" || v === "suya120") {
-              localStorage.removeItem(k);
-            }
-          });
-          var rawProf = localStorage.getItem("sn777_cached_profile_full");
-          if (rawProf) {
-            try {
-              var p = JSON.parse(rawProf);
-              if (p.username === "ব্যবহারকারী" || p.name === "সম্পূর্ণ নাম" || p.username === "suya120") {
-                localStorage.removeItem("sn777_cached_profile_full");
+            ['sn777_username', 'sn777_user_name'].forEach(function(k) {
+              var v = localStorage.getItem(k);
+              if (v === "ব্যবহারকারী" || v === "সম্পূর্ণ নাম" || v === "User" || v === "suya120") {
+                localStorage.removeItem(k);
               }
-            } catch(e) {}
-        } catch(e) {}
-        } catch(e) {}
-      })();
+            });
+            var rawProf = localStorage.getItem("sn777_cached_profile_full");
+            if (rawProf) {
+              try {
+                var p = JSON.parse(rawProf);
+                if (p.username === "ব্যবহারকারী" || p.name === "সম্পূর্ণ নাম" || p.username === "suya120") {
+                  localStorage.removeItem("sn777_cached_profile_full");
+                }
+              } catch(e) {}
+            }
+          } catch(e) {}
+        })();
       </script>
       <script type="text/javascript">
         window.firebaseConfig = {
@@ -242,7 +303,7 @@
           firestoreDatabaseId: "(default)"
         };
       </script>
-      <script type="module" crossorigin src="/assets/index-sn777-v13-nagad.js?v=1794689000000"></script>
+      <script type="module" crossorigin src="/assets/index-sn777-v13-nagad.js?v=1795116000000"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-C0XgLZC6-v3.css">
   <style id="sn777-payment-styles">
 /* EXACT DEPOSIT PAYMENT GATEWAY STYLES MATCHING SCREENSHOT - COMPACT SLIM */
@@ -308,6 +369,50 @@
 
 .sn-pay-back-wrap { text-align: center !important; padding: 2px 0 10px 0 !important; }
 .sn-pay-back-btn { background: none !important; border: none !important; font-size: 11px !important; font-weight: 700 !important; color: #64748b !important; text-decoration: underline !important; cursor: pointer !important; }
+
+/* RESPONSIVE DESKTOP & MOBILE HARMONY */
+@media (min-width: 768px) {
+  .sn-acc-page, .sn-pay-page-wrapper {
+    max-width: 480px !important;
+    margin: 0 auto !important;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2) !important;
+    border-radius: 24px !important;
+    overflow: hidden !important;
+  }
+  body {
+    background-color: #080f24 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+  }
+  #root {
+    width: 100% !important;
+    max-width: 480px !important;
+    min-height: 100vh !important;
+    position: relative !important;
+    background: #f8fafc !important;
+    box-shadow: 0 0 60px rgba(0,0,0,0.4) !important;
+  }
+  nav {
+    max-width: 480px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    border-radius: 0 0 24px 24px !important;
+  }
+}
+@media (max-width: 767px) {
+  body {
+    background-color: #f8fafc !important;
+    margin: 0 !important;
+  }
+  #root {
+    width: 100% !important;
+    min-height: 100vh !important;
+    background: #f8fafc !important;
+  }
+}
 </style>
 <script>
 window.showSnDepositModal = function(orderId, trxId, amount, method, walletNumber) {
@@ -394,7 +499,9 @@ window.showSnDepositModal = function(orderId, trxId, amount, method, walletNumbe
     };
     document.getElementById("sn-copy-trx-btn").onclick = function() {
       try {
-        navigator.clipboard.writeText(trx);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(trx).catch(function() {});
+        }
         this.innerHTML = "✓ কপি হয়েছে!";
         var btn = this;
         setTimeout(function(){ btn.innerHTML = "📋 কপি"; }, 2000);
@@ -448,6 +555,1199 @@ window.showSnNoticeModal = function(customMsg) {
   to { opacity: 1; transform: scale(1); }
 }
 </style>
+<style id="sn777-account-v2-styles">
+/* MY ACCOUNT V2 — MATCHING REFERENCE SCREENSHOT 2 (COMPACT SLIM HEIGHT) */
+.sn-acc-page {
+  background-color: #eef2f6 !important;
+  min-height: 100vh !important;
+  color: #1e293b !important;
+  padding-bottom: 96px !important;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Bengali", sans-serif !important;
+}
+.sn-acc-topbar {
+  background: linear-gradient(180deg, #1d439c 0%, #173682 100%) !important;
+  color: #ffffff !important;
+  padding: 6px 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16) !important;
+  min-height: 46px !important;
+  box-sizing: border-box !important;
+}
+.sn-acc-topbar-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+}
+.sn-acc-menu-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #ffffff !important;
+  padding: 4px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+}
+.sn-acc-brand {
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.02em !important;
+  color: #ffffff !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  text-transform: uppercase !important;
+}
+.sn-acc-topbar-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+}
+.sn-acc-top-pill {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  border-radius: 9999px !important;
+  padding: 4px 10px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  min-height: 28px !important;
+  transition: background-color 0.15s ease, transform 0.15s ease !important;
+}
+.sn-acc-top-pill:active {
+  transform: scale(0.96) !important;
+}
+.sn-acc-top-pill-dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 9999px !important;
+  background-color: #22c55e !important;
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+}
+.sn-acc-profile-strip {
+  background: #ffffff !important;
+  padding: 8px 12px 10px 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  box-sizing: border-box !important;
+}
+.sn-acc-avatar {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 9999px !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  color: #64748b !important;
+}
+.sn-acc-user-meta {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.sn-acc-username {
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.01em !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.sn-acc-subline {
+  font-size: 11.5px !important;
+  color: #64748b !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  flex-wrap: wrap !important;
+}
+.sn-acc-subval {
+  color: #1d4ed8 !important;
+  font-weight: 700 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.sn-acc-close-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #64748b !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+}
+.sn-acc-close-btn:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+.sn-acc-container {
+  max-width: 1024px !important;
+  margin: 0 auto !important;
+  padding: 8px 8px 0 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+}
+.sn-acc-sections-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+@media (min-width: 768px) {
+  .sn-acc-sections-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .sn-acc-sections-grid > .sn-acc-card:nth-child(5) {
+    grid-column: 1 / -1 !important;
+  }
+}
+.sn-acc-card {
+  background: #ffffff !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 6px rgba(15, 23, 42, 0.05) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  padding: 9px 12px 8px 12px !important;
+  box-sizing: border-box !important;
+}
+.sn-acc-wallet-grid {
+  display: grid !important;
+  grid-template-columns: 1fr auto 1fr !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.sn-acc-wallet-col {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  min-width: 0 !important;
+}
+.sn-acc-wallet-col-right {
+  align-items: flex-end !important;
+  text-align: right !important;
+}
+.sn-acc-wallet-label-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  white-space: nowrap !important;
+}
+.sn-acc-wallet-icon-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #64748b !important;
+  padding: 1px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 4px !important;
+}
+.sn-acc-wallet-amount-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+.sn-acc-wallet-dot-active {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 9999px !important;
+  background-color: #10b981 !important;
+  flex-shrink: 0 !important;
+}
+.sn-acc-wallet-dot-muted {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 9999px !important;
+  background-color: #cbd5e1 !important;
+  flex-shrink: 0 !important;
+}
+.sn-acc-wallet-amount {
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #1d4ed8 !important;
+  font-variant-numeric: tabular-nums !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.02em !important;
+}
+.sn-acc-wallet-amount-muted {
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #94a3b8 !important;
+  font-variant-numeric: tabular-nums !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.02em !important;
+}
+.sn-acc-toggle-wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 2px !important;
+}
+.sn-acc-toggle-track {
+  width: 46px !important;
+  height: 24px !important;
+  border-radius: 9999px !important;
+  background: #a7f3d0 !important;
+  padding: 2px !important;
+  display: flex !important;
+  align-items: center !important;
+  transition: background-color 0.2s ease !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12) !important;
+  box-sizing: border-box !important;
+}
+.sn-acc-toggle-thumb {
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 9999px !important;
+  background: #10b981 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22) !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.sn-acc-toggle-label {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+}
+.sn-acc-sec-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-bottom: 6px !important;
+}
+.sn-acc-sec-bar {
+  width: 3.5px !important;
+  height: 13px !important;
+  border-radius: 9999px !important;
+  background: #1d439c !important;
+  flex-shrink: 0 !important;
+}
+.sn-acc-sec-title {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  line-height: 1.2 !important;
+}
+.sn-acc-grid-4 {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 4px !important;
+}
+.sn-acc-grid-3 {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+.sn-acc-action-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 4px !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 2px 0 !important;
+  cursor: pointer !important;
+  text-align: center !important;
+  min-height: 0 !important;
+  transition: transform 0.15s ease !important;
+}
+.sn-acc-action-btn:active {
+  transform: scale(0.95) !important;
+}
+.sn-acc-action-circle {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 9999px !important;
+  background: #264ca0 !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 2px 6px rgba(29, 67, 156, 0.2) !important;
+  flex-shrink: 0 !important;
+}
+.sn-acc-action-label {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+  line-height: 1.2 !important;
+}
+.sn-acc-logout-btn {
+  width: 100% !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(226, 232, 240, 0.85) !important;
+  color: #1e293b !important;
+  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 6px rgba(15, 23, 42, 0.04) !important;
+}
+.sn-acc-logout-btn:active {
+  transform: scale(0.98) !important;
+}
+.sn-acc-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100500 !important;
+  background: rgba(15, 23, 42, 0.65) !important;
+  backdrop-filter: blur(4px) !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  padding: 28px 14px 24px 14px !important;
+  overflow-y: auto !important;
+}
+.sn-acc-modal-card {
+  background: #ffffff !important;
+  width: 100% !important;
+  max-width: 440px !important;
+  max-height: 88vh !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.35) !important;
+  color: #1e293b !important;
+}
+.sn-acc-modal-head {
+  background: linear-gradient(180deg, #1d439c 0%, #173682 100%) !important;
+  color: #ffffff !important;
+  padding: 12px 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-shrink: 0 !important;
+}
+.sn-acc-modal-body {
+  padding: 14px 16px !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+.sn-acc-field {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 8px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+.sn-acc-field-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #1d439c !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+.sn-acc-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: #0f172a !important;
+  background: #ffffff !important;
+  outline: none !important;
+}
+.sn-acc-input:focus {
+  border-color: #1d439c !important;
+}
+.sn-acc-btn-primary {
+  width: 100% !important;
+  background: #1d439c !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  text-align: center !important;
+}
+.sn-acc-btn-secondary {
+  width: 100% !important;
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 9px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  text-align: center !important;
+}
+@keyframes snAccPop {
+  0% { opacity: 0; transform: scale(0.86); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.sn-acc-toast-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100600 !important;
+  background: rgba(15, 23, 42, 0.14) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+}
+.sn-acc-toast-card {
+  width: min(76vw, 260px) !important;
+  background: #ffffff !important;
+  border-radius: 14px !important;
+  padding: 20px 18px 16px 18px !important;
+  box-shadow: 0 16px 45px rgba(15, 23, 42, 0.22) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  animation: snAccPop 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-sizing: border-box !important;
+}
+.sn-acc-toast-circle {
+  width: 54px !important;
+  height: 54px !important;
+  border-radius: 9999px !important;
+  border: 2.5px solid #a7f3d0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-bottom: 12px !important;
+  flex-shrink: 0 !important;
+}
+.sn-acc-toast-msg {
+  font-size: 14.5px !important;
+  font-weight: 500 !important;
+  color: #334155 !important;
+  line-height: 1.4 !important;
+}
+</style>
+
+<script type="text/javascript">
+(function() {
+  // Canonical bilingual entries: [bn, en, optionalAliases[]]
+  var _snEntries = [
+    // Navigation, Sidebar & Headers
+    ["হোম", "Home"],
+    ["ভাষা", "Language"],
+    ["প্রমোশন", "Promotions"],
+    ["রেফারেল", "Referral"],
+    ["রেফার বোনাস", "Referral Bonus"],
+    ["এফিলিয়েট", "Affiliate", ["এফিলিয়েট"]],
+    ["এফিলিয়েট প্রোগ্রাম", "Affiliate Program"],
+    ["বিজয়ীদের তালিকা", "Winners List"],
+    ["দৈনিক স্ট্রিক", "Daily Streak"],
+    ["হিস্ট্রি", "History", ["হিস্টোরি", "হিস্টরি"]],
+    ["বাজি রেকর্ডস", "Bet Records"],
+    ["টার্নওভার", "Turnover"],
+    ["লেনদেনের রেকর্ড", "Transaction Records", ["TRANSACTION RECORD"]],
+    ["প্রোফাইল", "Profile"],
+    ["ব্যক্তিগত তথ্য", "Personal Info"],
+    ["পাসওয়ার্ড পরিবর্তন", "Change Password", ["পাসওয়ার্ড পরিবর্তন"]],
+    ["ইনবক্স", "Inbox"],
+    ["যোগাযোগ করুন", "Contact Us"],
+    ["টেলিগ্রাম লাইভ চ্যাট", "Telegram Live Chat"],
+    ["লাইভ চ্যাট", "Live Chat"],
+    ["টেলিগ্রাম গ্রুপ", "Telegram Group"],
+    ["টেলিগ্রাম সাপোর্ট", "Telegram Support"],
+    ["ওয়েব অ্যাপ ইনস্টল", "Install Web App"],
+    ["লগ আউট", "Log Out"],
+    ["ডিপোজিট", "Deposit", ["DEPOSIT / ডিপোজিট", "DEPOSIT"]],
+    ["উত্তোলন", "Withdraw", ["WITHDRAW / উত্তোলন", "WITHDRAW", "উইথড্র"]],
+    ["বোনাস ওয়ালেট", "Bonus Wallet"],
+    ["প্রধান ওয়ালেট", "Main Wallet"],
+    ["মেইন ওয়ালেট", "Main Wallet"],
+    ["মেইন", "Main"],
+    ["বোনাস", "Bonus"],
+    ["মাই ভিআইপি", "My VIP"],
+    ["আমার প্রচার", "My Promotion"],
+    ["মাই একাউন্ট", "My Account"],
+    ["তহবিল", "Funds"],
+    ["ফান্ডস", "Funds"],
+    ["হট গেম", "Hot Games"],
+    ["স্পোর্ট", "Sports"],
+    ["ক্যাসিনো", "Casino"],
+    ["স্লট", "Slots"],
+    ["ক্র্যাশ", "Crash"],
+    ["টেবিল", "Table"],
+    ["ফিশিং", "Fishing"],
+    ["আর্কেড", "Arcade"],
+    ["লটারি", "Lottery"],
+    ["GAMES", "GAMES"],
+    ["OTHERS", "OTHERS"],
+    ["মেনু", "Menu"],
+    ["ফিরে যান", "Back"],
+    ["বন্ধ করুন", "Close"],
+    ["তথ্য", "Info"],
+    ["অ্যাপ ডাউনলোড", "Apps Download"],
+    ["ডাউনলোড", "Download", ["DOWNLOAD"]],
+    ["অ্যাপ", "App"],
+    ["স্বাগতম,", "Welcome,"],
+    ["মেইন ব্যালেন্স", "Main Balance"],
+    ["জয়েন্ট নাও (Join Now)", "Join Now"],
+    ["এডমিন কন্ট্রোল", "Admin Control"],
+
+    // Funds / Deposit / Withdraw / Bank Account Section
+    ["এমাউন্ট", "Amount", ["AMOUNT"]],
+    ["সাবমিট", "Submit"],
+    ["প্রসেসিং...", "Processing..."],
+    ["পেমেন্ট পদ্ধতি নির্বাচন করুন", "Select Payment Method"],
+    ["ডিপোজিট পরিমাণ", "Deposit Amount"],
+    ["ডিপোজিট চ্যানেল নির্বাচন করুন", "Select Deposit Channel"],
+    ["১টি চ্যানেল সক্রিয়", "1 Channel Active"],
+    ["ইনস্ট্যান্ট", "Instant"],
+    ["(অটো গেটওয়ে)", "(Auto Gateway)"],
+    ["ম্যানুয়াল পেমেন্ট", "Manual Payment"],
+    ["অন্য কোনো পরিমাণ লিখুন", "Enter another amount"],
+    ["নগদ", "Nagad", ["NAGAD"]],
+    ["বিকাশ", "Bkash", ["bKash", "BKASH"]],
+    ["রকেট", "Rocket", ["ROCKET"]],
+    ["উপায়", "Upay", ["উপায়", "UPAY"]],
+    ["উত্তোলনের একাউন্ট সিলেক্ট করুন", "Select Withdraw Account"],
+    ["উত্তোলনের ব্যাংক একাউন্ট", "Withdraw Bank Account"],
+    ["নতুন যোগ করুন", "Add New"],
+    ["+ ব্যাংক একাউন্ট যোগ করুন", "+ Add Bank Account"],
+    ["উত্তোলনের জন্য আপনার বিকাশ, নগদ, রকেট, উপায় বা USDT একাউন্ট যুক্ত করুন", "Add your Bkash, Nagad, Rocket, Upay or USDT account for withdrawal"],
+    ["ব্যাংক একাউন্ট", "Bank Account"],
+    ["✓ সিলেক্টেড", "✓ Selected"],
+    ["হোল্ডার:", "Holder:"],
+    ["একাউন্ট মুছুন", "Delete Account"],
+    ["যে একাউন্টে টাকা নিতে চান সেটির উপর ট্যাপ করে সিলেক্ট করুন", "Tap on the account you want to withdraw to"],
+    ["ব্যাংক একাউন্ট যোগ করুন", "Add Bank Account"],
+    ["পেমেন্ট মেথড নির্বাচন করুন:", "Select Payment Method:"],
+    ["একাউন্ট হোল্ডারের নাম:", "Account Holder Name:"],
+    ["আপনার নাম লিখুন", "Enter your name"],
+    ["একাউন্ট / মোবাইল নম্বর:", "Account / Mobile Number:"],
+    ["USDT ওয়ালেট অ্যাড্রেস:", "USDT Wallet Address:"],
+    ["T... / 0x... ওয়ালেট অ্যাড্রেস", "T... / 0x... Wallet Address"],
+    ["একাউন্ট যুক্ত করুন", "Add Account"],
+    ["অনুগ্রহ করে সঠিক নম্বর বা ওয়ালেট অ্যাড্রেস লিখুন", "Please enter a valid number or wallet address"],
+    ["আপনি কি এই ব্যাংক একাউন্টটি মুছে ফেলতে চান?", "Are you sure you want to delete this bank account?"],
+
+    // Transaction History Modal
+    ["সব / সকল", "ALL", ["ALL / সকল"]],
+    ["কোনো রেকর্ড পাওয়া যায়নি", "NO RECORDS FOUND"],
+    ["ইউজারনেম", "USERNAME"],
+    ["ব্যালেন্স", "BALANCE"],
+    ["অর্ডার আইডি", "ORDER ID"],
+    ["উইথড্র নম্বর", "WITHDRAW NUMBER"],
+    ["উইথড্র নং", "WITHDRAW NO"],
+    ["ডিপোজিট নং", "DEPOSIT NO"],
+    ["পেমেন্ট মেথড", "PAY TYPE"],
+    ["স্ট্যাটাস", "STATUS"],
+    ["তারিখ", "DATE"],
+    ["সফল", "Success"],
+    ["পেন্ডিং", "Pending"],
+    ["বাতিল", "Cancelled"],
+    ["পূর্বের পেজে ফিরে যান", "Return to Previous Page"],
+
+    // Checkout / Payment / Success / Alert Modals
+    ["কম বা বেশি টাকা পাঠাবেন না", "Do not send more or less money"],
+    ["কপি", "Copy"],
+    ["কপি হয়েছে", "Copied"],
+    ["কপি করা হয়েছে!", "Copied!"],
+    ["TrxID লিখুন", "Enter TrxID"],
+    ["ক্যাশআউট / সেন্ড মানি TrxID নম্বরটি লিখুন", "Enter Cashout / Send Money TrxID Number"],
+    ["সতর্কতা:", "Warning:"],
+    ["লেনদেন আইডি সঠিকভাবে পূরণ করতে হবে, অন্যথায় ক্রেডিট ব্যর্থ হবে!!", "Transaction ID must be filled accurately, otherwise credit will fail!!"],
+    ["জমা দিন", "Submit"],
+    ["পেমেন্ট সফলভাবে জমা হয়েছে!", "Payment submitted successfully!"],
+    ["উত্তোলন সফলভাবে জমা হয়েছে!", "Withdrawal submitted successfully!"],
+    ["পাসওয়ার্ড পরিবর্তন সফল!", "Password Changed Successfully!"],
+    ["আপনার একাউন্টের পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে।", "Your account password has been changed successfully."],
+    ["আপনার উইথড্র রিকোয়েস্ট সফলভাবে গ্রহণ করা হয়েছে। স্বল্প সময়ের মধ্যে আপনার একাউন্টে টাকা পৌঁছে যাবে।", "Your withdrawal request has been received. Funds will arrive in your account shortly."],
+    ["আপনার ডিপোজিট রিকোয়েস্ট ও ট্রানজ্যাকশন আইডি সফলভাবে জমা হয়েছে। ৫ থেকে ১০ মিনিটের মধ্যে একাউন্টে ব্যালেন্স যুক্ত হবে।", "Your deposit request and TrxID have been submitted. Balance will be added within 5 to 10 minutes."],
+    ["হোমে ফিরে যান", "Return Home"],
+    ["হোম পেজে ফিরে যান", "Return to Home"],
+    ["SN777 নিরাপদ লেনদেন এনক্রিপশন", "SN777 Secure Transaction Encryption"],
+    ["অর্ডার আইডি (Order ID)", "Order ID"],
+    ["ট্রানজ্যাকশন আইডি (TrxID):", "Transaction ID (TrxID):"],
+    ["উইথড্র আইডি (Withdraw ID)", "Withdraw ID"],
+    ["একাউন্ট নম্বর (Account):", "Account Number:"],
+    ["ব্যক্তিগত", "Personal"],
+    ["যাচাইাধীন", "Verifying"],
+    ["রসিদ প্রিন্ট বা ডাউনলোড করুন", "Print or Download Receipt"],
+    ["সীমা সতর্কতা!", "Limit Alert!"],
+    ["সর্বনিম্ন ডিপোজিট", "Minimum Deposit"],
+    ["দয়া করে সর্বনিম্ন", "Please deposit minimum"],
+    ["৫০০ টাকা", "500 BDT"],
+    ["২০০ টাকা", "200 BDT"],
+    ["২৫,০০০ টাকা", "25,000 BDT"],
+    ["ডিপোজিট করেন", "now."],
+    ["৳২০০ সিলেক্ট করে এগিয়ে যান", "Select ৳200 & Continue"],
+    ["অলরেডি আপনার অ্যাপটি ইনস্টল করা আছে।", "Your app is already installed."],
+    ["মেগা অফার!", "Mega Offer!"],
+    ["২০০% বোনাস", "200% Bonus"],
+    ["আপনার প্রথম ডিপোজিটে পান", "Get on your first deposit"],
+    ["৩ গুণ বেশি ব্যালেন্স!", "3X More Balance!"],
+    ["ডিপোজিট করুন", "Deposit Now"],
+    ["পরে করব", "Maybe Later"],
+    ["পেমেন্ট আপডেট নোটিশ", "Payment Update Notice"],
+    ["ঠিক আছে (আমি বুঝতে পেরেছি)", "OK (I Understand)"],
+
+    // Auth (Login / Signup / Forgot Password)
+    ["লগইন", "Login"],
+    ["লগইন করুন", "Log In"],
+    ["সাইন আপ", "Sign Up"],
+    ["রেজিস্ট্রেশন", "Sign Up"],
+    ["রেজিস্ট্রেশন করুন", "Register Now"],
+    ["প্রবেশ করুন", "Log In"],
+    ["পাসওয়ার্ড পুনরুদ্ধার", "Recover Password"],
+    ["পাসওয়ার্ড ভুলে গেছেন?", "Forgot Password?", ["পাসওয়ার্ড ভুলে গেছেন?"]],
+    ["নতুন একাউন্ট খুলে অফারগুলো উপভোগ করুন", "Create a new account to enjoy all offers"],
+    ["এসএমএস এর মাধ্যমে পাসওয়ার্ড পরিবর্তন করুন", "Reset password via SMS"],
+    ["আপনার একাউন্টে লগইন করুন", "Log in to your account"],
+    ["মুদ্রা বেছে নিন", "Select Currency"],
+    ["৪-১৫ অক্ষর, সংখ্যার অনুমতি দিন", "4-15 chars, letters & numbers"],
+    ["আপনার ইউজারনেম লিখুন", "Enter your username"],
+    ["পাসওয়ার্ড", "Password", ["পাসওয়ার্ড"]],
+    ["৬-২০টি অক্ষর এবং সংখ্যা", "6-20 letters and numbers"],
+    ["আপনার পাসওয়ার্ড দিন", "Enter your password"],
+    ["৬~২০ অক্ষরের মধ্যে।", "Between 6~20 characters."],
+    ["অন্তত একটি বড় হাতের বর্ণমালা।", "At least one uppercase letter."],
+    ["কমপক্ষে একটি সংখ্যা।", "At least one number."],
+    ["ফোন নাম্বার", "Phone Number"],
+    ["আপনার ফোন নম্বর লিখুন।", "Enter your phone number"],
+    ["রেফারাল কোড (ঐচ্ছিক)", "Referral Code (Optional)"],
+    ["কোড অথবা ইউজারনেম", "Code or username"],
+    ["রেফারেল সংযোগ সফল হয়েছে!", "Referral Connected!"],
+    ["6-ডিজিটের কোড", "6-Digit Code"],
+    ["নতুন পাসওয়ার্ড", "New Password"],
+    ["কনফার্ম পাসওয়ার্ড", "Confirm Password"],
+    ["পাসওয়ার্ড পরিবর্তন করুন", "Change Password"],
+    ["যাচাইকরণ কোড পাঠান", "Send Verification Code"],
+    ["লগইন পেজে ফিরে যান", "Back to Login"],
+    ["ইতিমধ্যে একজন সদস্য ?", "Already a member?"],
+    ["নতুন সদস্য ?", "New member?"],
+    ["শর্তাবলী", "Terms & Conditions"],
+    ["গোপনীয়তা নীতি", "Privacy Policy"],
+    ["আপনার একাউন্টের নিরাপত্তা নিশ্চিত করতে লগইন তথ্য কারো সাথে শেয়ার করবেন না।", "Never share your login details with anyone to keep your account safe."],
+
+    // Account & Sub-modals
+    ["ইমেল", "Email"],
+    ["ফেসবুক", "Facebook"],
+    ["ইমেল সাপোর্ট", "Email Support"],
+    ["ফেসবুক ও কমিউনিটি", "Facebook & Community"],
+    ["এডিট করুন", "Edit"],
+    ["সম্পূর্ণ নাম", "Full Name"],
+    ["সম্পন্ন", "Verified"],
+    ["অসম্পূর্ণ", "Incomplete"],
+    ["আপনার সম্পূর্ণ নাম লিখুন", "Enter your full name"],
+    ["আপনার ইউজারনেম", "Your username"],
+    ["জন্মদিন", "Birthday"],
+    ["যোগ করা হয়নি", "Not added"],
+    ["ই-মেইল", "Email"],
+    ["অ্যাড করা হয়নি", "Not added"],
+    ["তথ্য সংরক্ষণ করুন", "Save Info"],
+    ["আপনার তথ্য সফলভাবে আপডেট হয়েছে!", "Your info has been updated successfully!"],
+    ["নতুন পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)", "New Password (min 6 chars)"],
+    ["নতুন পাসওয়ার্ড লিখুন", "Enter new password"],
+    ["পাসওয়ার্ড নিশ্চিত করুন", "Confirm Password"],
+    ["আবার নতুন পাসওয়ার্ড লিখুন", "Re-enter new password"],
+    ["সংরক্ষণ হচ্ছে...", "Saving..."],
+    ["পাসওয়ার্ড আপডেট করুন", "Update Password"],
+    ["পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে!", "Password must be at least 6 characters!"],
+    ["দুটি পাসওয়ার্ড মেলেনি!", "Passwords do not match!"],
+    ["পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে!", "Password changed successfully!"],
+    ["ভিআইপি পয়েন্টস (VP)", "VIP Points (VP)"],
+    ["মোট বোনাস ওয়ালেট ব্যালেন্স", "Total Bonus Wallet Balance"],
+    ["প্রমো কোড ব্যবহার করুন", "Use Promo Code"],
+    ["ভাউচার কোড রিডিম করুন", "Redeem Voucher Code"],
+    ["প্রতিটি রেফারে ৳২৫০ বোনাস পান!", "Get ৳250 Bonus per Referral!"],
+    ["বন্ধু রেজিস্ট্রেশন করলে ৳৫০ এবং প্রথম ডিপোজিটে আরও ৳২০০ বোনাস যুক্ত হবে।", "Get ৳50 when friend registers and ৳200 more on their first deposit."],
+    ["আপনার রেফারেল লিংক", "Your Referral Link"],
+    ["আপনার রেফারেল লিঙ্ক", "Your Referral Link"],
+    ["রেফারেল লিংক কপি করুন", "Copy Referral Link"],
+    ["সম্পূর্ণ রেফার ড্যাশবোর্ড দেখুন", "View Full Referral Dashboard"],
+    ["প্রতিদিন চেক-ইন করে বোনাস জিতুন!", "Check in daily to win bonuses!"],
+    ["১ম দিন ৳৫০, এবং প্রতিদিন +৳১০ করে বাড়বে (৭ম দিন ৳১১০)", "Day 1 ৳50, increasing +৳10 daily (Day 7 ৳110)"],
+    ["আজকের চেক-ইন সম্পন্ন", "Today's check-in complete"],
+    ["সাম্প্রতিক কোনো বাজির রেকর্ড নেই", "No recent bet records"],
+    ["এই ফিল্টারে কোনো বাজির রেকর্ড নেই", "No bet records in this filter"],
+    ["Aviator, Crash বা অন্যান্য গেম খেললেই প্রতিটি বাজির হিস্ট্রি এখানে স্বয়ংক্রিয়ভাবে যুক্ত হবে।", "Play Aviator, Crash or other games and every bet history will appear here automatically."],
+    ["অন্য ফিল্টার বা 'সব' ট্যাব সিলেক্ট করে দেখুন।", "Try selecting another filter or the 'All' tab."],
+    ["গেম খেলতে হোমে যান", "Go to Home to Play"],
+    ["সাম্প্রতিক", "Recent"],
+    ["বাজি", "Bet"],
+    ["গুণিতক", "Multiplier"],
+    ["প্রাপ্তি", "Payout"],
+    ["নিট", "Net"],
+    ["জয়", "Win"],
+    ["পরাজয়", "Loss"],
+    ["সব", "All"],
+    ["মোট জয়", "Total Win"],
+    ["নিট লাভ/ক্ষতি", "Net Profit/Loss"],
+    ["✓ এই সাইটে কোনো টার্নওভার নেই", "✓ No Turnover Requirement Here"],
+    ["শুধুমাত্র ডিপোজিট করলেই টার্নওভার সম্পন্ন হয়। ডিপোজিট করার সাথে সাথেই আপনি সরাসরি উত্তোলন (Withdraw) দিতে পারবেন।", "Just make a deposit to complete turnover. You can withdraw directly right after depositing."],
+    ["বাজি টার্নওভার শর্ত", "Bet Turnover Requirement"],
+    ["নেই (৳0.00)", "None (৳0.00)"],
+    ["টার্নওভার স্ট্যাটাস", "Turnover Status"],
+    ["সম্পন্ন ✓ (উত্তোলনযোগ্য)", "Completed ✓ (Withdrawable)"],
+    ["ডিপোজিট প্রয়োজন", "Deposit Required"],
+    ["উত্তোলন করুন", "Withdraw Now"],
+    ["টার্নওভার সম্পর্কিত নীতিমালা", "Turnover Policy"],
+    ["টার্নওভার সম্পন্ন", "Turnover Done"],
+    ["সরাসরি উত্তোলনযোগ্য", "Directly Withdrawable"],
+    ["SN777 এ আপনাকে স্বাগতম!", "Welcome to SN777!"],
+    ["আপনার প্রথম ডিপোজিটে আকর্ষণীয় বোনাস ও ফ্রি স্পিন অফার উপভোগ করুন।", "Enjoy exciting bonuses and free spin offers on your first deposit."],
+    ["অফিশিয়াল সাপোর্ট ইমেল", "Official Support Email"],
+    ["ইমেল পাঠান", "Send Email"],
+    ["লাইভ চ্যাটে যোগাযোগ করুন", "Contact via Live Chat"],
+    ["SN777 অফিশিয়াল কমিউনিটি", "SN777 Official Community"],
+    ["নতুন অফার, বোনাস আপডেট ও দ্রুত সাপোর্টের জন্য আমাদের অফিশিয়াল চ্যানেল ও লাইভ চ্যাটে যুক্ত থাকুন।", "Join our official channel and live chat for new offers, bonus updates & fast support."],
+    ["অফিশিয়াল পেজ / সাপোর্টে যান", "Go to Official Page / Support"],
+    ["সরাসরি লাইভ চ্যাট খুলুন", "Open Live Chat Directly"],
+
+    // Promo, Refer, Bonus Wallet, VIP, Voucher
+    ["ক্যাশব্যাক ভাউচার", "Cashback Voucher"],
+    ["ভাউচার কোড", "Voucher Code"],
+    ["ক্যাশ বোনাস পাওয়ার সহজ উপায়!", "Easy way to get cash bonus!"],
+    ["আপনার কাছে কি কোনো মেম্বার ভাউচার কোড আছে? তাহলে সেটি নিচে লিখে সাবমিট করুন এবং ব্যালেন্সে অ্যাড করে নিন!", "Have a member voucher code? Enter it below and submit to add to your balance!"],
+    ["আপনার ব্রাউজার থেকে পেস্ট করার অনুমতি দিন অথবা ম্যানুয়ালি টাইপ করুন।", "Allow paste from browser or type manually."],
+    ["যাচাই করা হচ্ছে...", "Verifying..."],
+    ["কোড যোগ করুন", "Add Code"],
+    ["পেস্ট", "Paste"],
+    ["ভাউচার কোড লিখুন", "Enter Voucher Code"],
+    ["শর্তাবলী দেখুন", "View Terms & Conditions"],
+    ["* প্রমো কোড এবং ভাউচার কোড সম্পূর্ণ আলাদা। এডমিন বা সাপোর্ট পেজ থেকে ভাউচার সংগ্রহ করা যায়।", "* Promo code and voucher code are separate. Get vouchers from admin or support page."],
+    ["• একটি একাউন্টে প্রতিটি ভাউচার কোড শুধুমাত্র একবারই ব্যবহারযোগ্য।", "• Each voucher code can only be used once per account."],
+    ["• সফলভাবে ভাউচার রিডিম করার সাথে সাথে অ্যাকাউন্টে টাকা ক্রেডিট হবে।", "• Funds are credited immediately after redeeming a valid voucher."],
+    ["• যেকোনো অবৈধ বা হ্যাকিং প্রচেষ্টায় আইডি সাময়িক ব্লক হতে পারে।", "• Any invalid or hacking attempt may result in temporary account suspension."],
+    ["মোট রেফারেল বোনাস", "Total Referral Bonus"],
+    ["সফল রেফারেল", "Successful Referrals"],
+    ["প্রতি রেফারে", "Per Referral"],
+    ["আপনার রেফার কোড", "Your Referral Code"],
+    ["রেফার লিঙ্ক", "Referral Link"],
+    ["শেয়ার করুন", "Share"],
+    ["QR কোড স্ক্যান করুন", "Scan QR Code"],
+    ["আপনার রেফারেল", "Your Referrals"],
+    ["SN777 রেফার বোনাস", "SN777 Refer Bonus"],
+    ["বন্ধুদের রেফার করুন", "Refer Friends"],
+    ["আপনার রেফার কোড শেয়ার করুন। বন্ধু সাইন আপ করলেই বোনাস পাবেন।", "Share your referral code. Earn bonus as soon as a friend signs up."],
+    ["এখনো কোনো রেফারেল নেই। আপনার রেফার কোড শেয়ার করুন!", "No referrals yet. Share your referral code!"],
+    ["বোনাস ওয়ালেট ব্যালেন্স", "Bonus Wallet Balance"],
+    ["উপলব্ধ বোনাস", "Available Bonus"],
+    ["অ্যাক্টিভ বোনাস ব্যালেন্স", "Active Bonus Balance"],
+    ["গেম খেলুন", "Play Games"],
+    ["কোনো বোনাস নেই।", "No bonus available."],
+    ["লেভেল", "Level"],
+    ["আপনি সর্বোচ্চ ভিআইপি লেভেলে পৌঁছেছেন।", "You have reached the highest VIP level."],
+    ["বিস্তারিত", "Details"],
+    ["ভিআইপি লেভেল সুবিধাসমূহ", "VIP Level Benefits"],
+    ["বন্ধ", "Close"],
+    ["লেভেল 1", "Level 1"],
+    ["লেভেল 2", "Level 2"],
+    ["লেভেল 3", "Level 3"],
+    ["লেভেল 4", "Level 4"],
+    ["বেসিক ক্যাশব্যাক ও সাপোর্ট", "Basic Cashback & Support"],
+    ["৩% সাপ্তাহিক ক্যাশব্যাক", "3% Weekly Cashback"],
+    ["৫% রিলোড বোনাস + দ্রুত উইথড্র", "5% Reload Bonus + Fast Withdraw"],
+    ["ভিআইপি ম্যানেজার ও ১০% রিবেট", "VIP Manager & 10% Rebate"],
+    ["VP কনভার্ট", "Convert VP"],
+    ["পয়েন্টস", "Points"],
+    ["VP কনভার্সন রেশিও :", "VP Conversion Ratio :"],
+    ["রিয়েল মানি", "Real Money"],
+    ["রিয়েল মানিতে কনভার্ট করুন", "Convert to Real Money"],
+    ["বোনাস রিফ্রেশ", "Refresh Bonus"],
+
+    // Install Modal & Live Support Overlay & Telegram Widget
+    ["Install App", "Install App"],
+    ["Cancel", "Cancel"],
+    ["Install", "Install"],
+    ["Sn777.site ওয়েব অ্যাপ", "Sn777.site Web App"],
+    ["অফিসিয়াল ওয়েব অ্যাপ", "Official Web App"],
+    ["ফোনে শর্টকাট অ্যাপ বানাতে:", "Add App Shortcut on Phone:"],
+    ["লাইভ সাপোর্ট টিম", "Live Support Team"],
+    ["কানেক্ট হচ্ছে...", "Connecting..."],
+    ["এনক্রিপ্টেড", "Encrypted"],
+    ["আপনার নিরাপদ সুরক্ষার জন্য ইউজার আইডি অথেন্টিকেট করা হচ্ছে। অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন...", "Authenticating your user ID for your security. Please wait a few seconds..."],
+    ["Sn777 লাইভ সাপোর্ট", "Sn777 Live Support"],
+    ["অনলাইন • লাইভ সাপোর্ট টিম", "Online • Live Support Team"],
+    ["সরাসরি টেলিগ্রাম অ্যাপে খুলুন", "Open directly in Telegram app"],
+    ["টেলিগ্রামে যান", "Go to Telegram"],
+    ["আজ", "Today"],
+    ["সাপোর্ট এজেন্ট", "Support Agent"],
+    ["এখন", "Now"],
+    ["সাপোর্ট প্রতিনিধি লিখছেন...", "Support agent is typing..."],
+    ["ছবি / স্ক্রিনশট পাঠান", "Send photo / screenshot"],
+    ["একটি মেসেজ লিখুন...", "Type a message..."],
+    ["মেসেজ পাঠান", "Send message"],
+    ["💬 টেলিগ্রাম লাইভ চ্যাট", "💬 Telegram Live Chat"],
+    ["💰 ডিপোজিট জমা হয়নি", "💰 Deposit Not Received"],
+    ["💸 উইথড্রল সমস্যা", "💸 Withdrawal Issue"],
+    ["📱 টেলিগ্রাম গ্রুপ", "📱 Telegram Group"],
+    ["নিরাপদ সংযোগ পরীক্ষা করা হচ্ছে...", "Checking secure connection..."],
+    ["কোনো ইন্টারনেট সংযোগ নেই!", "No Internet Connection!"],
+    ["আবার চেষ্টা করুন", "Try Again"],
+    ["জনপ্রিয় গেম", "Popular Games"],
+    ["পেমেন্ট মেথড", "Payment Method"],
+    ["কমিউনিটি ওয়েবসাইট", "Community Website"],
+    ["স্পন্সর", "Sponsors"],
+    ["ব্র্যান্ড অ্যাম্বাসেডর", "Brand Ambassador"],
+    ["মেইন স্পন্সর · ২০২৩", "Main Sponsor · 2023"],
+    ["টাইটেল স্পন্সর · ২০২৩ - ২০২৪", "Title Sponsor · 2023 - 2024"],
+    ["টাইটেল স্পন্সর · ২০২৩", "Title Sponsor · 2023"],
+    ["মেইন স্পন্সর · ২০২৪", "Main Sponsor · 2024"],
+    ["অফিশিয়াল মেইন পার্টনার · ২০২৫", "Official Main Partner · 2025"],
+    ["ভারতীয় ক্রিকেট কিংবদন্তি", "Indian Cricket Legend"],
+    ["বাংলা সিনেমার হৃদয়", "Heart of Bengali Cinema"],
+    ["ঢালিউড স্টার", "Dhallywood Star"],
+    ["ভারতীয় ফিনিশার", "Indian Finisher"],
+    ["বাংলার বিউটি কুইন", "Bengali Beauty Queen"],
+    ["মেইন স্পন্সর · ২০২৬ - ২০২৭", "Main Sponsor · 2026 - 2027"],
+    ["টাইটেল স্পন্সর · ২০২৬ - ২০২৭", "Title Sponsor · 2026 - 2027"],
+    ["অফিশিয়াল মেইন পার্টনার · ২০২৬ - ২০২৭", "Official Main Partner · 2026 - 2027"],
+    ["২০২৬ - ২০২৭", "2026 - 2027"],
+    ["মেইন স্পন্সর · ২০২৭", "Main Sponsor · 2027"],
+    ["টাইটেল স্পন্সর · ২০২৭", "Title Sponsor · 2027"],
+    ["অফিশিয়াল মেইন পার্টনার · ২০২৭", "Official Main Partner · 2027"],
+    ["২০২৭", "2027"],
+    ["২০২৩ - ২০২৪", "2023 - 2024"],
+    ["২০২৩ - বর্তমান", "2023 - Present"],
+    ["© ২০২৭ sn777.site কপিরাইট। সমস্ত অধিকার সংরক্ষিত", "© 2027 sn777.site Copyright. All Rights Reserved"]
+  ];
+
+  // Language buttons must never be rewritten
+  var _snSkipSet = { "বাংলা": true, "English": true };
+
+  // Proper Bengali digits 0..9
+  var _bnDigitArr = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
+  function toAsciiDigits(str) {
+    return String(str).replace(/[০-৯]/g, function(ch) {
+      var i = _bnDigitArr.indexOf(ch);
+      return i !== -1 ? String(i) : ch;
+    });
+  }
+
+  function buildMap(lang) {
+    var map = {};
+    var idx = (lang === "en" ? 1 : 0);
+    for (var i = 0; i < _snEntries.length; i++) {
+      var e = _snEntries[i];
+      var target = e[idx] || e[0];
+      if (!target) continue;
+      if (e[0]) map[e[0]] = target;
+      if (e[1]) map[e[1]] = target;
+      if (e[2]) {
+        for (var j = 0; j < e[2].length; j++) {
+          if (e[2][j]) map[e[2][j]] = target;
+        }
+      }
+    }
+    return map;
+  }
+
+  var _snMaps = {
+    bn: buildMap("bn"),
+    en: buildMap("en")
+  };
+
+  function normalizeLang(l) {
+    return l === "en" ? "en" : "bn";
+  }
+
+  function translatePatterns(trimmed, lang) {
+    var m;
+    // "হোল্ডার: NAME"
+    if ((m = trimmed.match(/^হোল্ডার:\s*(.+)$/))) {
+      return (lang === "en" ? "Holder: " : "হোল্ডার: ") + m[1];
+    }
+    // "সীমা: ৳..."
+    if ((m = trimmed.match(/^সীমা:\s*(.+)$/))) {
+      var lim = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Limit: " : "সীমা: ") + lim;
+    }
+    // "100% বোনাস"
+    if ((m = trimmed.match(/^(.+)\s+বোনাস$/))) {
+      return m[1] + (lang === "en" ? " Bonus" : " বোনাস");
+    }
+    // "পাবেন ৳..."
+    if ((m = trimmed.match(/^পাবেন\s+৳(.+)$/))) {
+      var amt = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Get ৳" : "পাবেন ৳") + amt;
+    }
+    // "রেজিস্ট্রেশন: ..."
+    if ((m = trimmed.match(/^রেজিস্ট্রেশন:\s*(.+)$/))) {
+      var dt = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Registered: " : "রেজিস্ট্রেশন: ") + dt;
+    }
+    // "দিন ১" .. "দিন ৭"
+    if ((m = trimmed.match(/^দিন\s+([০-৯0-9]+)$/))) {
+      var dNum = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Day " : "দিন ") + dNum;
+    }
+    // "2/৭ দিন"
+    if ((m = trimmed.match(/^([০-৯0-9]+)\/([০-৯0-9]+)\s*দিন$/))) {
+      var a = toAsciiDigits(m[1]), b = toAsciiDigits(m[2]);
+      if (lang === "en") return a + "/" + b + " Days";
+      return m[0];
+    }
+    // "আজকের চেক-ইন সম্পন্ন (..."
+    if ((m = trimmed.match(/^আজকের চেক-ইন সম্পন্ন\s*\((.+)\)$/))) {
+      var inner = (lang === "bn") ? m[1] : toAsciiDigits(m[1]).replace(/দিন/g, "days");
+      if (lang === "en") return "Today's check-in complete (" + inner + ")";
+      return m[0];
+    }
+    // "আজকের চেক-ইন সংগ্রহ করুন (+৳৫০)"
+    if ((m = trimmed.match(/^আজকের চেক-ইন সংগ্রহ করুন\s*\(\+৳([০-৯0-9]+)\)$/))) {
+      var rw = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      if (lang === "en") return "Claim Today's Check-in (+৳" + rw + ")";
+      return m[0];
+    }
+    // Bet Records stats
+    if ((m = trimmed.match(/^মোট বাজি\s*\(([০-৯0-9]+)\)$/))) {
+      var c = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Total Bets (" : "মোট বাজি (") + c + ")";
+    }
+    if ((m = trimmed.match(/^সব\s*\(([০-৯0-9]+)\)$/))) {
+      var c2 = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "All (" : "সব (") + c2 + ")";
+    }
+    if ((m = trimmed.match(/^(?:জয়|জয়)\s*\(([০-৯0-9]+)\)$/))) {
+      var c3 = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Won (" : "জয় (") + c3 + ")";
+    }
+    if ((m = trimmed.match(/^(?:পরাজয়|পরাজয়)\s*\(([০-৯0-9]+)\)$/))) {
+      var c4 = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Lost (" : "পরাজয় (") + c4 + ")";
+    }
+    // Referrals & earnings
+    if ((m = trimmed.match(/^মোট রেফার:\s*(.+)\s*জন$/))) {
+      var rc = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Total Referrals: " : "মোট রেফার: ") + rc + (lang === "bn" ? " জন" : "");
+    }
+    if ((m = trimmed.match(/^(?:আয়|আয়):\s*৳(.+)$/))) {
+      var ea = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Earnings: ৳" : "আয়: ৳") + ea;
+    }
+    if ((m = trimmed.match(/^(?:রেফারেল আয়|রেফারেল আয়):\s*৳(.+)$/))) {
+      var rea = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Referral Earnings: ৳" : "রেফারেল আয়: ৳") + rea;
+    }
+    // Bonus wallet & VIP
+    if ((m = trimmed.match(/^উপলব্ধ পরিমাণ:\s*৳(.+)$/))) {
+      var av = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Available Amount: ৳" : "উপলব্ধ পরিমাণ: ৳") + av;
+    }
+    if ((m = trimmed.match(/^ন্যূনতম VP প্রয়োজন:\s*(.+)$/))) {
+      var vp = (lang === "bn") ? m[1] : toAsciiDigits(m[1]);
+      return (lang === "en" ? "Minimum VP Required: " : "ন্যূনতম VP প্রয়োজন: ") + vp;
+    }
+    // Inbox transaction title
+    if ((m = trimmed.match(/^(ডিপোজিট|উইথড্র)\s*•\s*৳(.+)$/))) {
+      var label = m[1] === "ডিপোজিট"
+        ? (lang === "en" ? "Deposit" : "ডিপোজিট")
+        : (lang === "en" ? "Withdraw" : "উইথড্র");
+      return label + " • ৳" + ((lang === "bn") ? m[2] : toAsciiDigits(m[2]));
+    }
+    // Method & Amount in Success Modal
+    if ((m = trimmed.match(/^মেথড:\s*(.*)$/))) {
+      return (lang === "en" ? "Method: " : "মেথড: ") + m[1];
+    }
+    if ((m = trimmed.match(/^পরিমাণ:\s*(.*)$/))) {
+      return (lang === "en" ? "Amount: " : "পরিমাণ: ") + m[1];
+    }
+    // Pure Bengali numerals or currency ranges
+    if (lang !== "bn" && /[০-৯]/.test(trimmed)) {
+      return toAsciiDigits(trimmed);
+    }
+    return null;
+  }
+
+  window.snTranslateStr = function(raw, targetLang) {
+    if (!raw || typeof raw !== "string") return raw;
+    var lang = normalizeLang(targetLang || window.__snCurrentLang || (function() { try { return localStorage.getItem("sn777_lang"); } catch(e) { return null; } })());
+    var trimmed = raw.trim();
+    if (!trimmed || _snSkipSet[trimmed]) return raw;
+    var map = _snMaps[lang] || _snMaps.bn;
+    var rep = null;
+    if (Object.prototype.hasOwnProperty.call(map, trimmed)) {
+      rep = map[trimmed];
+    } else {
+      rep = translatePatterns(trimmed, lang);
+    }
+    if (rep === null || rep === undefined) return raw;
+    return raw.replace(trimmed, rep);
+  };
+
+  var _origTextMap = typeof WeakMap !== "undefined" ? new WeakMap() : null;
+  var _lastWrittenTextMap = typeof WeakMap !== "undefined" ? new WeakMap() : null;
+  var _origAttrMap = typeof WeakMap !== "undefined" ? new WeakMap() : null;
+  var _lastWrittenAttrMap = typeof WeakMap !== "undefined" ? new WeakMap() : null;
+  var _snIsApplying = false;
+  var _snPendingRaf = null;
+  var _TRANSLATED_ATTRS = ["placeholder", "title", "aria-label"];
+
+  window.snApplyDomLang = function(targetLang) {
+    var lang = normalizeLang(targetLang || (function() { try { return localStorage.getItem("sn777_lang"); } catch(e) { return null; } })());
+    window.__snCurrentLang = lang;
+    try {
+      localStorage.setItem("sn777_lang", lang);
+      document.documentElement.lang = (lang === "en" ? "en" : "bn");
+    } catch(e) {}
+
+    if (_snIsApplying || !document.body) return;
+    _snIsApplying = true;
+    try {
+      var walkNodes = function(node) {
+        if (!node) return;
+        if (node.nodeType === 3) {
+          var curVal = node.nodeValue;
+          if (!curVal || !curVal.trim()) return;
+          var origVal;
+          if (_origTextMap && _lastWrittenTextMap) {
+            if (!_origTextMap.has(node) || _lastWrittenTextMap.get(node) !== curVal) {
+              origVal = curVal;
+              _origTextMap.set(node, origVal);
+            } else {
+              origVal = _origTextMap.get(node);
+            }
+          } else {
+            origVal = curVal;
+          }
+          var nextVal = window.snTranslateStr(origVal, lang);
+          if (nextVal !== curVal) {
+            node.nodeValue = nextVal;
+          }
+          if (_lastWrittenTextMap) _lastWrittenTextMap.set(node, nextVal);
+        } else if (node.nodeType === 1) {
+          var tag = node.tagName;
+          if (tag === "SCRIPT" || tag === "STYLE" || tag === "NOSCRIPT" || tag === "TEXTAREA") return;
+
+          // Translate placeholder, title, aria-label attributes losslessly
+          for (var ai = 0; ai < _TRANSLATED_ATTRS.length; ai++) {
+            var attr = _TRANSLATED_ATTRS[ai];
+            if (node.hasAttribute && node.hasAttribute(attr)) {
+              var curAttr = node.getAttribute(attr);
+              if (curAttr && curAttr.trim()) {
+                var origObj = _origAttrMap ? (_origAttrMap.get(node) || {}) : {};
+                var lastObj = _lastWrittenAttrMap ? (_lastWrittenAttrMap.get(node) || {}) : {};
+                var origAttr;
+                if (!(attr in origObj) || lastObj[attr] !== curAttr) {
+                  origAttr = curAttr;
+                  origObj[attr] = origAttr;
+                  if (_origAttrMap) _origAttrMap.set(node, origObj);
+                } else {
+                  origAttr = origObj[attr];
+                }
+                var nextAttr = window.snTranslateStr(origAttr, lang);
+                if (nextAttr !== curAttr) {
+                  node.setAttribute(attr, nextAttr);
+                }
+                lastObj[attr] = nextAttr;
+                if (_lastWrittenAttrMap) _lastWrittenAttrMap.set(node, lastObj);
+              }
+            }
+          }
+
+          var c = node.firstChild;
+          while (c) {
+            walkNodes(c);
+            c = c.nextSibling;
+          }
+        }
+      };
+
+      walkNodes(document.body);
+    } finally {
+      _snIsApplying = false;
+    }
+  };
+
+  function scheduleApply() {
+    if (_snIsApplying) return;
+    if (_snPendingRaf) return;
+    var raf = window.requestAnimationFrame || function(fn) { return setTimeout(fn, 16); };
+    _snPendingRaf = raf(function() {
+      _snPendingRaf = null;
+      var curLang = "bn";
+      try { curLang = localStorage.getItem("sn777_lang") || window.__snCurrentLang || "bn"; } catch(e) {}
+      if (window.snApplyDomLang) window.snApplyDomLang(curLang);
+    });
+  }
+
+  if (typeof document !== "undefined") {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", function() {
+        window.snApplyDomLang();
+      });
+    } else {
+      setTimeout(function() { window.snApplyDomLang(); }, 50);
+    }
+
+    try {
+      var observer = new MutationObserver(function(muts) {
+        if (_snIsApplying) return;
+        scheduleApply();
+      });
+      var startObs = function() {
+        if (document.body) {
+          observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+        }
+      };
+      if (document.body) {
+        startObs();
+      } else {
+        document.addEventListener("DOMContentLoaded", startObs);
+      }
+    } catch(e) {}
+  }
+})();
+</script>
+
 </head>
   <body>
     <div id="root"></div>
@@ -461,7 +1761,7 @@ window.showSnNoticeModal = function(customMsg) {
         
         <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
           <div style="width: 54px; height: 54px; flex-shrink: 0; border-radius: 14px; overflow: hidden; background: #0b1528; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.12);">
-            <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgb5oKSfVei2lIiOLewTPVVES1KI5VX0lLd5hyphenhyphenwXImIDb3lGmEHj2B-BAagrvZ00scvGmVQinhv1YvWxLNRpPkMSSw-XSgKU1lyTOSJMPWwEKuo5K7WeRaDsF0IdA2fqvjNPpy0J3BKi9L9yxY3OQfaZRS_OARVdHBnN0VGExMn77dxLwxPCPNn-gTqvp_H/s1290/Gallery_1783869640543.png" style="width: 100%; height: 100%; object-fit: cover;" alt="App Icon">
+            <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgb5oKSfVei2lIiOLewTPVVES1KI5VX0lLd5hyphenhyphenwXImIDb3lGmEHj2B-BAagrvZ00scvGmVQinhv1YvWxLNRpPkMSSw-XSgKU1lyTOSJMPWwEKuo5K7WeRaDsF0IdA2fqvjNPpy0J3BKi9L9yxY3OQfaZRS_OARVdHBnN0VGExMn77dxLwxPCPNn-gTqvp_H/s192/Gallery_1783869640543.png" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" alt="App Icon">
           </div>
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.2;">Sn777.site ওয়েব অ্যাপ</span>
@@ -489,7 +1789,7 @@ window.showSnNoticeModal = function(customMsg) {
       // Register Service Worker & Self-Heal Caches
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          navigator.serviceWorker.register('/sw.js?v=1795116000000', { scope: '/' })
             .then(function(reg) {
               if (reg && typeof reg.update === 'function') {
                 reg.update().catch(function() {});
@@ -499,13 +1799,13 @@ window.showSnNoticeModal = function(customMsg) {
         });
       }
       try {
-        var APP_VER = "20261114_banner2_v4";
+        var APP_VER = "20261120_responsive_v133";
         if (localStorage.getItem("sn777_app_ver") !== APP_VER) {
           localStorage.setItem("sn777_app_ver", APP_VER);
           if ('caches' in window) {
             caches.keys().then(function(keys) {
               keys.forEach(function(k) {
-                if (k !== "sn777-v29" && !k.startsWith("sn777-v63")) caches.delete(k);
+                if (!k.startsWith("sn777-v133")) caches.delete(k);
               });
             });
           }
@@ -568,10 +1868,11 @@ window.showSnNoticeModal = function(customMsg) {
         } else {
           closeInstallGuideModal();
           var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+          var _curL = (window.__snCurrentLang || localStorage.getItem("sn777_lang") || "bn");
           if (isIOS) {
-            alert("iOS/Safari তে শর্টকাট অ্যাপ বানাতে নিচে Share (📤) আইকনে চাপ দিয়ে 'Add to Home Screen' চাপুন।");
+            alert(_curL === "en" ? "On iOS/Safari, tap the Share (📤) icon below and choose 'Add to Home Screen'." : "iOS/Safari তে শর্টকাট অ্যাপ বানাতে নিচে Share (📤) আইকনে চাপ দিয়ে 'Add to Home Screen' চাপুন।");
           } else {
-            alert("গুগল ক্রোম ব্রাউজারের উপরে ডানদিকের ৩-ডট (⋮) মেনুতে চাপ দিয়ে 'Install app' বা 'Add to Home screen' চাপুন, তাহলে সরাসরি ফোনের হোমস্ক্রিনে অ্যাপটি চলে আসবে।");
+            alert(_curL === "en" ? "Tap the 3-dot (⋮) menu at the top right of Chrome and select 'Install app' or 'Add to Home screen'." : "গুগল ক্রোম ব্রাউজারের উপরে ডানদিকের ৩-ডট (⋮) মেনুতে চাপ দিয়ে 'Install app' বা 'Add to Home screen' চাপুন, তাহলে সরাসরি ফোনের হোমস্ক্রিনে অ্যাপটি চলে আসবে।");
           }
         }
       };
@@ -593,7 +1894,7 @@ window.showSnNoticeModal = function(customMsg) {
         var btn = el.closest ? el.closest('button') : null;
         if (btn) {
           var t = (btn.textContent || btn.innerText || "").trim();
-          if (t.includes("Apps Download") || t.includes("অ্যাপ ইনস্টল") || t.includes("INSTALL APP")) {
+          if (t.includes("Apps Download") || t.includes("অ্যাপ ডাউনলোড") || t.includes("অ্যাপ ইনস্টল") || t.includes("INSTALL APP")) {
             e.preventDefault();
             e.stopPropagation();
             if (window.showInstallGuideModal) {
@@ -1222,7 +2523,7 @@ window.showSnNoticeModal = function(customMsg) {
   <div id="snTgFloatBtn" class="sn-tg-float-btn" onclick="toggleSnTgChat()" title="লাইভ চ্যাট">
     <div class="sn-tg-circle">
       <!-- 3D Ultra-Luxurious Live Chat Casino Logo -->
-      <img src="/assets/live_chat_logo.jpg" alt="Live Chat" class="sn-tg-logo-img" />
+      <img src="/assets/live_chat_logo.webp" alt="Live Chat" decoding="async" loading="eager" class="sn-tg-logo-img" />
       <div class="sn-tg-online-dot"></div>
       <div id="snTgUnreadBadge" class="sn-tg-unread-badge">1</div>
     </div>
@@ -1266,7 +2567,7 @@ window.showSnNoticeModal = function(customMsg) {
   <div class="sn-tg-header">
     <div class="sn-tg-header-left">
       <div class="sn-tg-avatar-box">
-        <img src="/assets/live_chat_logo.jpg" alt="Sn777 Support" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />
+        <img src="/assets/live_chat_logo.webp" alt="Sn777 Support" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />
         <div class="sn-tg-online-dot" style="width: 10px; height: 10px; top: 0; right: 0;"></div>
       </div>
       <div>

@@ -35,9 +35,9 @@ for (const relPath of filesToClean) {
   let modified = false;
 
   // 1. Clean Bi array (deposit methods)
-  const biRegex = /const\s+Bi\s*=\s*\[\s*\{\s*id\s*:\s*\"(?:bkash|nagad)\"[\s\S]*?\}\s*\];/;
-  if (biRegex.test(content)) {
-    content = content.replace(biRegex, `${cleanBi};`);
+  const biRegex = /const\s+Bi\s*=\s*\[\s*\{\s*id\s*:\s*\"(?:bkash|nagad)\"[^\n]*?\}\s*\]([,;])/;
+  if (!content.includes(cleanBi) && biRegex.test(content)) {
+    content = content.replace(biRegex, `${cleanBi}$1`);
     modified = true;
   }
 

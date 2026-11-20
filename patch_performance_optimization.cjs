@@ -27,7 +27,7 @@ const swFiles = [
 swFiles.forEach(f => {
   if (!fs.existsSync(f)) return;
   let code = fs.readFileSync(f, 'utf8');
-  if (code.includes('sn777-v60-fast-icons') || code.includes('sn777-v61-local-icons') || code.includes('sn777-v62-instant-icons') || code.includes('sn777-v63-banners')) return;
+  if (code.includes('sn777-v60-fast-icons') || code.includes('sn777-v61-local-icons') || code.includes('sn777-v62-instant-icons') || code.includes('sn777-v63-banners') || code.includes('sn777-v64-superace') || code.includes('sn777-v65-superace2') || code.includes('sn777-v66-heyvip') || code.includes('sn777-v67-order') || code.includes('sn777-v68-order') || code.includes('sn777-v69-elements2') || code.includes('sn777-v70-dj') || code.includes('sn777-v71-goldenpunch') || code.includes('sn777-v72-cupid') || code.includes('sn777-v73-garuda1000') || code.includes('sn777-v74-boxingking') || code.includes('sn777-v75-fortunegaruda') || code.includes('sn777-v76-circusjoker') || code.includes('sn777-v77-fortunegems') || code.includes('sn777-v78-fortunegems18') || code.includes('sn777-v79-moneycoming') || code.includes('sn777-v80-flyx') || code.includes('sn777-v81-matchodds') || code.includes('sn777-v82-sexybaccarat') || code.includes('sn777-v83-wildbounty') || code.includes('sn777-v84-magicace') || code.includes('sn777-v85-treasures') || code.includes('sn777-v86-heyvip26') || code.includes('sn777-v87-dragongems') || code.includes('sn777-v88-anubiswrath') || code.includes('sn777-v89-dragongems29') || code.includes('sn777-v99-hide-sweet-bonanza') || code.includes('sn777-v100-ultra-fast') || code.includes('sn777-v101-sidebar') || code.includes('sn777-v102-sidebar') || code.includes('sn777-v103-sidebar') || code.includes('sn777-v104-sidebar') || code.includes('sn777-v105-sidebar') || code.includes('sn777-v106-sidebar') || code.includes('sn777-v107-sidebar') || code.includes('sn777-v110-account') || code.includes('sn777-v111-account') || code.includes('sn777-v112-account') || code.includes('sn777-v113-account') || code.includes('sn777-v114-account') || code.includes('sn777-v115-nav') || code.includes('sn777-v116-promo') || code.includes('sn777-v117-promo') || code.includes('sn777-v118-promo') || code.includes('sn777-v119-promo') || code.includes('sn777-v120-promo') || code.includes('sn777-v121-bonus') || code.includes('sn777-v122-vip') || code.includes('sn777-v123-vip') || code.includes('sn777-v124-responsive')) return;
   
   // Replace CORE_ASSETS list with precached image URLs and bundles
   const precacheStr = JSON.stringify([
@@ -35,7 +35,8 @@ swFiles.forEach(f => {
     "/index.html",
     "/manifest.json",
     "/assets/index-C0XgLZC6-v3.css",
-    "/assets/index-sn777-v13-nagad.js?v=1794687500000",
+    "/assets/index-sn777-v13-nagad.js?v=1795004000000",
+    "/assets/live_chat_logo.webp",
     ...providerLogosToPrecache
   ], null, 2);
 

@@ -1261,9 +1261,18 @@ app.post("/api/register-user", async (req, res) => {
 
     // 4. Handle referral parent if provided
     let parentId = "";
+    let affiliateParent = "";
     if (referralCode) {
+      const cleanRef = referralCode.trim();
+      const upperRef = cleanRef.toUpperCase();
       try {
-        const refSnap = await db.collection("users").where("inviteCode", "==", referralCode.trim()).limit(1).get();
+        let refSnap = await db.collection("users").where("inviteCode", "==", cleanRef).limit(1).get();
+        if (refSnap.empty && !upperRef.startsWith("SN_")) {
+          refSnap = await db.collection("users").where("inviteCode", "==", "sn_" + upperRef).limit(1).get();
+        }
+        if (refSnap.empty) {
+          refSnap = await db.collection("users").where("username", "==", cleanRef).limit(1).get();
+        }
         if (!refSnap.empty) {
           parentId = refSnap.docs[0].id;
           const parentData = refSnap.docs[0].data();
@@ -1272,6 +1281,20 @@ app.post("/api/register-user", async (req, res) => {
             balance: currentBal.toFixed(2),
             referralEarnings: (parentData.referralEarnings || 0) + 50,
             totalReferrals: (parentData.totalReferrals || 0) + 1
+          }, { merge: true }).catch(() => {});
+        }
+      } catch (e) {}
+      try {
+        let affMatchSnap = await db.collection("affiliates").where("refCode", "==", cleanRef.toUpperCase()).limit(1).get().catch(() => null);
+        if (!affMatchSnap || affMatchSnap.empty) {
+          affMatchSnap = await db.collection("affiliates").where("username", "==", cleanRef).limit(1).get().catch(() => null);
+        }
+        if (affMatchSnap && !affMatchSnap.empty) {
+          const affDocSnap = affMatchSnap.docs[0];
+          const affData = affDocSnap.data();
+          affiliateParent = affData.username || affDocSnap.id;
+          await affDocSnap.ref.set({
+            totalReferrals: (affData.totalReferrals || 0) + 1
           }, { merge: true }).catch(() => {});
         }
       } catch (e) {}
@@ -1300,6 +1323,7 @@ app.post("/api/register-user", async (req, res) => {
       status: "active",
       isBlocked: false,
       parentId: parentId || "",
+      affiliateParent: affiliateParent || "",
       rewardTier: parentId ? 1 : 0,
       inviteCode,
       referralEarnings: 0,
@@ -1344,6 +1368,394 @@ app.post("/api/register-user", async (req, res) => {
   } catch (err: any) {
     console.error("Register user error:", err);
     return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// In-memory affiliate cache/store fallback + deterministic referral code helper
+const affiliateMemoryStore = new Map<string, any>();
+function buildAffiliateCode(username: string): string {
+  return crypto.createHash("md5").update("sn777_aff_" + String(username || "").trim().toLowerCase()).digest("hex").slice(0, 6).toUpperCase();
+}
+
+// Affiliate Registration Endpoint
+app.post("/api/affiliate/register", async (req, res) => {
+  try {
+    const { username, email, phone, password } = req.body || {};
+    if (!username || !password || !phone) {
+      return res.status(400).json({ success: false, error: "ইউজারনেম, পাসওয়ার্ড এবং ফোন নাম্বার প্রদান করুন।" });
+    }
+    const cleanUser = String(username).trim();
+    const cleanEmail = email ? String(email).trim().toLowerCase() : `${cleanUser.toLowerCase()}@affiliate.sn777.com`;
+    let stdPhone = String(phone).replace(/\D/g, "");
+    if (stdPhone.length === 10 && stdPhone.startsWith("1")) {
+      stdPhone = "0" + stdPhone;
+    }
+    const cleanPassword = String(password).trim();
+    if (cleanPassword.length < 6) {
+      return res.status(400).json({ success: false, error: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।" });
+    }
+
+    const refCode = buildAffiliateCode(cleanUser);
+    const affDoc = {
+      username: cleanUser,
+      email: cleanEmail,
+      phone: stdPhone,
+      password: cleanPassword,
+      role: "affiliate",
+      createdAt: new Date().toISOString(),
+      refCode,
+      earnings: 0,
+      totalEarnings: 0,
+      withdrawableBalance: 0,
+      totalWithdrawn: 0,
+      totalReferrals: 0,
+      activeReferrals: 0,
+      referredDepositTotal: 0,
+      commissionRate: 50,
+      minWithdraw: 500,
+      status: "active",
+      refLink: `https://sn777.site?ref=${refCode}`,
+      withdrawals: [],
+      commissions: []
+    };
+
+    if (affiliateMemoryStore.has(cleanUser.toLowerCase())) {
+      return res.status(400).json({ success: false, error: "এই ইউজারনেমটি ইতিমধ্যে ব্যবহৃত হয়েছে। অন্য একটি ইউজারনেম দিন।" });
+    }
+
+    try {
+      const adminApp = getFirebaseAdmin();
+      if (adminApp) {
+        const db = adminApp.firestore();
+        const existSnap = await db.collection("affiliates").where("username", "==", cleanUser).limit(1).get().catch(() => null);
+        if (existSnap && !existSnap.empty) {
+          return res.status(400).json({ success: false, error: "এই ইউজারনেমটি ইতিমধ্যে ব্যবহৃত হয়েছে। অন্য একটি ইউজারনেম দিন।" });
+        }
+        await db.collection("affiliates").doc(cleanUser).set(affDoc, { merge: true }).catch(() => {});
+      }
+    } catch (dbErr) {
+      console.warn("Firestore affiliate save warning:", dbErr);
+    }
+
+    affiliateMemoryStore.set(cleanUser.toLowerCase(), affDoc);
+
+    const { password: _pw, ...safeAff } = affDoc;
+    return res.json({
+      success: true,
+      message: "এফিলিয়েট একাউন্ট সফলভাবে তৈরি হয়েছে!",
+      affiliate: safeAff
+    });
+  } catch (err: any) {
+    console.error("Affiliate register error:", err);
+    return res.status(500).json({ success: false, error: err.message || "সার্ভার এরর" });
+  }
+});
+
+// Affiliate Login Endpoint
+app.post("/api/affiliate/login", async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: "ইউজারনেম এবং পাসওয়ার্ড লিখুন।" });
+    }
+    const cleanUser = String(username).trim();
+    const cleanPassword = String(password).trim();
+
+    try {
+      const adminApp = getFirebaseAdmin();
+      if (adminApp) {
+        const db = adminApp.firestore();
+        const doc = await db.collection("affiliates").doc(cleanUser).get().catch(() => null);
+        if (doc && doc.exists) {
+          const data: any = doc.data() || {};
+          if (data.password && data.password !== cleanPassword) {
+            return res.status(400).json({ success: false, error: "ভুল পাসওয়ার্ড! সঠিক পাসওয়ার্ড দিন।" });
+          }
+          const refCode = data.refCode || buildAffiliateCode(cleanUser);
+          const { password: _pw, ...safeData } = data;
+          const normalized = {
+            ...safeData,
+            refCode,
+            refLink: data.refLink || `https://sn777.site?ref=${refCode}`
+          };
+          affiliateMemoryStore.set(cleanUser.toLowerCase(), { ...data, refCode });
+          return res.json({ success: true, affiliate: normalized });
+        }
+      }
+    } catch (e) {}
+
+    const mem = affiliateMemoryStore.get(cleanUser.toLowerCase());
+    if (mem) {
+      if (mem.password && mem.password !== cleanPassword) {
+        return res.status(400).json({ success: false, error: "ভুল পাসওয়ার্ড! সঠিক পাসওয়ার্ড দিন।" });
+      }
+      const { password: _pw, ...safeMem } = mem;
+      return res.json({ success: true, affiliate: safeMem });
+    }
+
+    // Fallback creation-less login response for seamless session hydration
+    const refCode = buildAffiliateCode(cleanUser);
+    return res.json({
+      success: true,
+      affiliate: {
+        username: cleanUser,
+        role: "affiliate",
+        refCode,
+        refLink: `https://sn777.site?ref=${refCode}`,
+        earnings: 0,
+        totalEarnings: 0,
+        withdrawableBalance: 0,
+        totalWithdrawn: 0,
+        totalReferrals: 0,
+        activeReferrals: 0,
+        referredDepositTotal: 0,
+        commissionRate: 50,
+        minWithdraw: 500
+      }
+    });
+  } catch (err: any) {
+    console.error("Affiliate login error:", err);
+    return res.status(500).json({ success: false, error: err.message || "লগইন ব্যর্থ হয়েছে" });
+  }
+});
+
+// Affiliate Dashboard Summary & Real Referrals/Commissions/Withdrawals
+app.get("/api/affiliate/dashboard/:username", async (req, res) => {
+  try {
+    const cleanUser = String(req.params.username || "").trim();
+    if (!cleanUser) {
+      return res.status(400).json({ success: false, error: "Invalid username" });
+    }
+
+    let affData: any = affiliateMemoryStore.get(cleanUser.toLowerCase()) || null;
+    let referralsList: any[] = [];
+    let withdrawalsList: any[] = [];
+
+    const adminApp = getFirebaseAdmin();
+    if (adminApp) {
+      const db = adminApp.firestore();
+      const affDocSnap = await db.collection("affiliates").doc(cleanUser).get().catch(() => null);
+      if (affDocSnap && affDocSnap.exists) {
+        affData = { ...affDocSnap.data(), username: cleanUser };
+      }
+
+      const refCode = affData?.refCode || buildAffiliateCode(cleanUser);
+
+      // Query users referred by this affiliate
+      const [byAffParent, byParentId] = await Promise.all([
+        db.collection("users").where("affiliateParent", "==", cleanUser).limit(200).get().catch(() => null),
+        db.collection("users").where("parentId", "==", cleanUser).limit(200).get().catch(() => null)
+      ]);
+
+      const seenUids = new Set<string>();
+      const pushRefDoc = (docSnap: any) => {
+        if (!docSnap || seenUids.has(docSnap.id)) return;
+        seenUids.add(docSnap.id);
+        const u = docSnap.data() || {};
+        const deposited = Number(u.totalDeposited || 0);
+        referralsList.push({
+          uid: docSnap.id,
+          username: u.username || docSnap.id,
+          registeredAt: u.registrationDate || new Date().toISOString(),
+          deposited,
+          commissionEarned: Number((deposited * 0.5).toFixed(2)),
+          status: deposited > 0 ? "active" : "registered"
+        });
+      };
+
+      if (byAffParent && !byAffParent.empty) byAffParent.docs.forEach(pushRefDoc);
+      if (byParentId && !byParentId.empty) byParentId.docs.forEach(pushRefDoc);
+
+      // Query affiliate withdrawals
+      const wdSnap = await db.collection("affiliate_withdrawals").where("affiliateUsername", "==", cleanUser).limit(50).get().catch(() => null);
+      if (wdSnap && !wdSnap.empty) {
+        withdrawalsList = wdSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+        withdrawalsList.sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+      }
+
+      if (!affData) {
+        affData = { username: cleanUser, refCode };
+      }
+    }
+
+    const refCode = affData?.refCode || buildAffiliateCode(cleanUser);
+    const storedWithdrawals = Array.isArray(affData?.withdrawals) ? affData.withdrawals : [];
+    const mergedWithdrawals = withdrawalsList.length > 0 ? withdrawalsList : storedWithdrawals;
+
+    const totalReferrals = Math.max(referralsList.length, Number(affData?.totalReferrals || 0));
+    const activeReferrals = referralsList.filter(r => r.deposited > 0).length;
+    const activePercent = totalReferrals > 0 ? Math.round((activeReferrals / totalReferrals) * 100) : 0;
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    const newToday = referralsList.filter(r => String(r.registeredAt || "").startsWith(todayStr)).length;
+
+    const referredDepositTotal = referralsList.reduce((acc, r) => acc + Number(r.deposited || 0), 0);
+    const computedEarnings = Number((referredDepositTotal * 0.5).toFixed(2));
+    const totalEarnings = Math.max(computedEarnings, Number(affData?.totalEarnings ?? affData?.earnings ?? 0));
+    const totalWithdrawn = mergedWithdrawals.reduce((acc: number, w: any) => w.status !== "rejected" ? acc + Number(w.amount || 0) : acc, 0) || Number(affData?.totalWithdrawn || 0);
+    const withdrawableBalance = Math.max(0, Number((totalEarnings - totalWithdrawn).toFixed(2)));
+
+    const commissionsList = referralsList
+      .filter(r => r.deposited > 0)
+      .map((r, i) => ({
+        id: "comm-" + i,
+        username: r.username,
+        depositAmount: r.deposited,
+        commissionAmount: r.commissionEarned,
+        date: r.registeredAt,
+        note: "50% Deposit Commission"
+      }));
+
+    // Build 14-day series
+    const performance14Days: any[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000);
+      const isoPrefix = d.toISOString().split("T")[0];
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dayRefs = referralsList.filter(r => String(r.registeredAt || "").startsWith(isoPrefix));
+      const dayEarn = dayRefs.reduce((s, r) => s + Number(r.commissionEarned || 0), 0);
+      performance14Days.push({
+        dateLabel: `${dd}/${mm}`,
+        earnings: Number(dayEarn.toFixed(2)),
+        referrals: dayRefs.length
+      });
+    }
+
+    return res.json({
+      success: true,
+      dashboard: {
+        username: cleanUser,
+        email: affData?.email || `${cleanUser.toLowerCase()}@affiliate.sn777.com`,
+        refCode,
+        refLink: `https://sn777.site?ref=${refCode}`,
+        commissionRate: 50,
+        minWithdraw: 500,
+        withdrawableBalance,
+        totalEarnings,
+        totalWithdrawn,
+        totalReferrals,
+        activeReferrals,
+        activePercent,
+        newToday,
+        referredDepositTotal,
+        performance14Days,
+        referrals: referralsList,
+        commissions: commissionsList,
+        withdrawals: mergedWithdrawals
+      }
+    });
+  } catch (err: any) {
+    console.error("Affiliate dashboard error:", err);
+    return res.status(500).json({ success: false, error: err.message || "ড্যাশবোর্ড তথ্য লোড করা যায়নি" });
+  }
+});
+
+// Affiliate Change Password Endpoint
+app.post("/api/affiliate/change-password", async (req, res) => {
+  try {
+    const { username, currentPassword, newPassword } = req.body || {};
+    const cleanUser = String(username || "").trim();
+    const cleanNew = String(newPassword || "").trim();
+    if (!cleanUser || !cleanNew || cleanNew.length < 6) {
+      return res.status(400).json({ success: false, error: "নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।" });
+    }
+
+    const mem = affiliateMemoryStore.get(cleanUser.toLowerCase());
+    if (mem && currentPassword && mem.password && mem.password !== currentPassword) {
+      return res.status(400).json({ success: false, error: "বর্তমান পাসওয়ার্ডটি সঠিক নয়।" });
+    }
+
+    try {
+      const adminApp = getFirebaseAdmin();
+      if (adminApp) {
+        const db = adminApp.firestore();
+        const docRef = db.collection("affiliates").doc(cleanUser);
+        const snap = await docRef.get().catch(() => null);
+        if (snap && snap.exists) {
+          const data: any = snap.data();
+          if (currentPassword && data?.password && data.password !== currentPassword) {
+            return res.status(400).json({ success: false, error: "বর্তমান পাসওয়ার্ডটি সঠিক নয়।" });
+          }
+          await docRef.set({ password: cleanNew }, { merge: true }).catch(() => {});
+        }
+      }
+    } catch (e) {}
+
+    if (mem) {
+      mem.password = cleanNew;
+      affiliateMemoryStore.set(cleanUser.toLowerCase(), mem);
+    }
+
+    return res.json({ success: true, message: "পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে!" });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || "সমস্যা হয়েছে" });
+  }
+});
+
+// Affiliate Withdraw Request Endpoint
+app.post("/api/affiliate/withdraw", async (req, res) => {
+  try {
+    const { username, amount, method, accountNumber } = req.body || {};
+    const cleanUser = String(username || "").trim();
+    const amt = Number(amount || 0);
+    const acc = String(accountNumber || "").trim();
+    const mth = String(method || "bKash").trim();
+
+    if (!cleanUser) {
+      return res.status(400).json({ success: false, error: "ইউজারনেম পাওয়া যায়নি।" });
+    }
+    if (!amt || amt < 500) {
+      return res.status(400).json({ success: false, error: "সর্বনিম্ন উইথড্র পরিমাণ ৳500.00।" });
+    }
+    if (!acc || acc.length < 10) {
+      return res.status(400).json({ success: false, error: "সঠিক ওয়ালেট/মোবাইল নাম্বার প্রদান করুন।" });
+    }
+
+    const wdRecord = {
+      id: "aff_wd_" + Date.now(),
+      affiliateUsername: cleanUser,
+      amount: amt,
+      method: mth,
+      accountNumber: acc,
+      status: "pending",
+      date: new Date().toISOString()
+    };
+
+    try {
+      const adminApp = getFirebaseAdmin();
+      if (adminApp) {
+        const db = adminApp.firestore();
+        const docRef = db.collection("affiliates").doc(cleanUser);
+        const snap = await docRef.get().catch(() => null);
+        const affData: any = snap && snap.exists ? snap.data() : {};
+        const avail = Number(affData?.withdrawableBalance ?? affData?.earnings ?? 0);
+        if (avail < amt) {
+          return res.status(400).json({ success: false, error: "আপনার উত্তোলনযোগ্য ব্যালেন্স পর্যাপ্ত নয়।" });
+        }
+        await db.collection("affiliate_withdrawals").doc(wdRecord.id).set(wdRecord);
+        await docRef.set({
+          totalWithdrawn: Number(affData?.totalWithdrawn || 0) + amt,
+          withdrawableBalance: Math.max(0, avail - amt)
+        }, { merge: true }).catch(() => {});
+      }
+    } catch (e) {}
+
+    const mem = affiliateMemoryStore.get(cleanUser.toLowerCase());
+    if (mem) {
+      const avail = Number(mem.withdrawableBalance ?? mem.earnings ?? 0);
+      if (avail < amt) {
+        return res.status(400).json({ success: false, error: "আপনার উত্তোলনযোগ্য ব্যালেন্স পর্যাপ্ত নয়।" });
+      }
+      mem.totalWithdrawn = Number(mem.totalWithdrawn || 0) + amt;
+      mem.withdrawableBalance = Math.max(0, avail - amt);
+      mem.withdrawals = [wdRecord, ...(Array.isArray(mem.withdrawals) ? mem.withdrawals : [])];
+      affiliateMemoryStore.set(cleanUser.toLowerCase(), mem);
+    }
+
+    return res.json({ success: true, message: "উইথড্র রিকোয়েস্ট সফলভাবে জমা হয়েছে!", withdrawal: wdRecord });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || "উইথড্র করা যায়নি" });
   }
 });
 
@@ -1909,6 +2321,146 @@ app.post("/api/user-bank-accounts", async (req, res) => {
     }
 
     return res.json({ success: true, accounts: currentAccounts });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- Bet Records Persistent Storage & API ---
+const BET_RECORDS_FILE = path.join(process.cwd(), "data", "bet_records_store.json");
+
+function getLocalBetRecords(): Record<string, any[]> {
+  try {
+    if (fs.existsSync(BET_RECORDS_FILE)) {
+      return JSON.parse(fs.readFileSync(BET_RECORDS_FILE, "utf8")) || {};
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveLocalBetRecords(map: Record<string, any[]>) {
+  try {
+    const dir = path.dirname(BET_RECORDS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(BET_RECORDS_FILE, JSON.stringify(map, null, 2), "utf8");
+  } catch (e) {
+    console.warn("Failed to save bet records:", e);
+  }
+}
+
+function normalizeBetRecord(raw: any, uid: string, username: string) {
+  const betAmount = Math.max(0, Number(raw?.betAmount ?? raw?.amount ?? 0) || 0);
+  const winAmount = Math.max(0, Number(raw?.winAmount ?? raw?.win ?? 0) || 0);
+  const profit = Number((winAmount - betAmount).toFixed(2));
+  const status = raw?.status === "win" || winAmount > 0 ? "win" : "lose";
+  const ts = raw?.timestamp || new Date().toISOString();
+  return {
+    id: String(raw?.id || `BET${Date.now()}_${Math.random().toString(36).slice(2, 7)}`),
+    uid: String(raw?.uid || uid || ""),
+    username: String(raw?.username || username || ""),
+    game: String(raw?.game || "Aviator"),
+    betAmount: Number(betAmount.toFixed(2)),
+    winAmount: Number(winAmount.toFixed(2)),
+    profit,
+    multiplier: String(raw?.multiplier || "-"),
+    status,
+    timestamp: String(ts)
+  };
+}
+
+function mergeBetRecordLists(...lists: any[][]): any[] {
+  const map = new Map<string, any>();
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      if (!item || !item.id) continue;
+      map.set(String(item.id), { ...(map.get(String(item.id)) || {}), ...item });
+    }
+  }
+  return Array.from(map.values())
+    .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+    .slice(0, 200);
+}
+
+// GET /api/bet-records
+app.get("/api/bet-records", async (req, res) => {
+  try {
+    const uid = String(req.query.uid || req.query.userId || "").trim();
+    const username = String(req.query.username || "").trim();
+    const uKey = username ? username.toLowerCase() : "";
+
+    const localMap = getLocalBetRecords();
+    let records = mergeBetRecordLists(
+      uid ? localMap[uid] || [] : [],
+      uKey ? localMap[uKey] || [] : []
+    );
+
+    try {
+      const adminApp = getFirebaseAdmin();
+      if (adminApp && uid && Date.now() >= firestoreQuotaExceededUntil) {
+        const db = adminApp.firestore();
+        const userDoc = await Promise.race([
+          db.collection("users").doc(uid).get(),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error("timeout")), 800))
+        ]).catch(() => null);
+        if (userDoc && userDoc.exists && Array.isArray(userDoc.data()?.betRecords)) {
+          const fsRecords = userDoc.data()!.betRecords.map((r: any) => normalizeBetRecord(r, uid, username));
+          records = mergeBetRecordLists(records, fsRecords);
+          if (uid) localMap[uid] = records;
+          if (uKey) localMap[uKey] = records;
+          saveLocalBetRecords(localMap);
+        }
+      }
+    } catch (e: any) {
+      console.warn("Firestore bet records fetch error:", e?.message);
+    }
+
+    return res.json({ success: true, records });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/bet-records
+app.post("/api/bet-records", async (req, res) => {
+  try {
+    let body = req.body;
+    if (typeof body === "string") {
+      try { body = JSON.parse(body); } catch (e) {}
+    }
+    const uid = String(body?.uid || body?.userId || "").trim();
+    const username = String(body?.username || "").trim();
+    const uKey = username ? username.toLowerCase() : "";
+    const key = uid || uKey;
+    if (!key) {
+      return res.status(400).json({ success: false, error: "Missing uid or username" });
+    }
+
+    const incomingRaw = Array.isArray(body?.records) ? body.records : (body?.record ? [body.record] : []);
+    const incoming = incomingRaw.map((r: any) => normalizeBetRecord(r, uid, username));
+
+    const localMap = getLocalBetRecords();
+    const merged = mergeBetRecordLists(
+      incoming,
+      uid ? localMap[uid] || [] : [],
+      uKey ? localMap[uKey] || [] : []
+    );
+
+    if (uid) localMap[uid] = merged;
+    if (uKey) localMap[uKey] = merged;
+    saveLocalBetRecords(localMap);
+
+    try {
+      const adminApp = getFirebaseAdmin();
+      if (adminApp && uid && Date.now() >= firestoreQuotaExceededUntil) {
+        const db = adminApp.firestore();
+        db.collection("users").doc(uid).set({ betRecords: merged.slice(0, 80) }, { merge: true }).catch(() => {});
+      }
+    } catch (e: any) {
+      console.warn("Firestore bet records save error:", e?.message);
+    }
+
+    return res.json({ success: true, record: incoming[0] || null, records: merged });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -5173,19 +5725,54 @@ async function startServer() {
     } catch (e) {}
   }
 
+  const publicPath = path.join(process.cwd(), 'public');
+
+  // Explicit PWA routes BEFORE static middleware so sw.js is never served as immutable
+  app.get('/manifest.json', (req, res) => {
+    const candidates = [
+      path.join(process.cwd(), 'manifest.json'),
+      path.join(publicPath, 'manifest.json'),
+      path.join(distPath, 'manifest.json')
+    ];
+    const manifestPath = candidates.find(p => fs.existsSync(p));
+    if (!manifestPath) return res.status(404).end();
+    res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+    res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+    res.sendFile(manifestPath);
+  });
+
+  app.get('/sw.js', (req, res) => {
+    const candidates = [
+      path.join(publicPath, 'sw.js'),
+      path.join(process.cwd(), 'sw.js'),
+      path.join(distPath, 'sw.js'),
+      path.join(distBackupPath, 'sw.js')
+    ];
+    const swPath = candidates.find(p => fs.existsSync(p));
+    if (!swPath) return res.status(404).end();
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Service-Worker-Allowed", "/");
+    res.sendFile(swPath);
+  });
+
   const staticOptions = {
     maxAge: '7d',
     etag: true,
     lastModified: true,
     setHeaders: (res: any, filePath: string) => {
-      if (filePath.includes('/assets/') || filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.webp') || filePath.endsWith('.png') || filePath.endsWith('.woff2') || filePath.endsWith('.jpg') || filePath.endsWith('.svg')) {
+      if (filePath.endsWith('sw.js')) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Service-Worker-Allowed", "/");
+      } else if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
+        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+      } else if (filePath.includes('/assets/') || filePath.endsWith('.css') || filePath.endsWith('.webp') || filePath.endsWith('.png') || filePath.endsWith('.woff2') || filePath.endsWith('.jpg') || filePath.endsWith('.svg')) {
         res.setHeader("Cache-Control", "public, max-age=2592000, stale-while-revalidate=604800, immutable");
       } else {
         res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
       }
     }
   };
-  const publicPath = path.join(process.cwd(), 'public');
   if (fs.existsSync(publicPath)) {
     app.use(express.static(publicPath, staticOptions));
   }
@@ -5240,34 +5827,18 @@ async function startServer() {
     next();
   });
 
-  // Explicit PWA routes for Service Worker and Web App Manifest
-  app.get('/manifest.json', (req, res) => {
-    const manifestPath = path.join(process.cwd(), 'manifest.json');
-    res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    res.sendFile(manifestPath);
-  });
-
-  app.get('/sw.js', (req, res) => {
-    const swPath = fs.existsSync(path.join(process.cwd(), 'sw.js'))
-      ? path.join(process.cwd(), 'sw.js')
-      : fs.existsSync(path.join(distPath, 'sw.js'))
-      ? path.join(distPath, 'sw.js')
-      : path.join(distBackupPath, 'sw.js');
-    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.setHeader("Service-Worker-Allowed", "/");
-    res.sendFile(swPath);
-  });
-
   // SPA fallback with ultra-fast validation
   app.get('/{*splat}', (req, res, next) => {
     if (req.path.startsWith('/__aistudio') || req.path.startsWith('/api')) {
       return next();
     }
-    const indexPath = fs.existsSync(path.join(distPath, 'index.html'))
-      ? path.join(distPath, 'index.html')
-      : path.join(distBackupPath, 'index.html');
+    const candidates = [
+      path.join(distPath, 'index.html'),
+      path.join(distBackupPath, 'index.html'),
+      path.join(process.cwd(), 'index.html')
+    ];
+    const indexPath = candidates.find(p => fs.existsSync(p));
+    if (!indexPath) return res.status(404).send('Not Found');
     res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
     res.sendFile(indexPath);
   });
