@@ -1371,6 +1371,63 @@ app.post("/api/register-user", async (req, res) => {
   }
 });
 
+// Secure server-side login endpoint
+app.post("/api/login-user", async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: "ইউজারনেম এবং পাসওয়ার্ড প্রদান করুন।" });
+    }
+    const cleanUser = String(username).trim();
+    const cleanPass = String(password).trim();
+    const cleanEmail = `${cleanUser.toLowerCase().replace(/\s+/g, '')}@sn777.com`;
+
+    const adminApp = getFirebaseAdmin();
+    if (!adminApp) {
+      return res.status(500).json({ success: false, error: "ডাটাবেস সংযোগে সমস্যা হয়েছে।" });
+    }
+    const db = adminApp.firestore();
+    const auth = adminApp.auth();
+
+    let userDoc: any = null;
+    let uid = "";
+
+    const queries = [
+      db.collection("users").where("username", "==", cleanUser).limit(1).get(),
+      db.collection("users").where("email", "==", cleanEmail).limit(1).get(),
+      db.collection("users").where("phone", "==", cleanUser).limit(1).get()
+    ];
+    const snaps = await Promise.all(queries);
+    for (const snap of snaps) {
+      if (!snap.empty) {
+        userDoc = snap.docs[0];
+        uid = userDoc.id;
+        break;
+      }
+    }
+
+    if (!userDoc) {
+      return res.status(400).json({ success: false, error: "এই নামে আপনার কোন ইউজার অ্যাকাউন্ট নেই" });
+    }
+
+    const userData = userDoc.data();
+    const customToken = await auth.createCustomToken(uid).catch(() => "");
+
+    return res.json({
+      success: true,
+      uid,
+      customToken,
+      user: {
+        uid,
+        ...userData
+      }
+    });
+  } catch (err: any) {
+    console.error("Login user error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // In-memory affiliate cache/store fallback + deterministic referral code helper
 const affiliateMemoryStore = new Map<string, any>();
 function buildAffiliateCode(username: string): string {
