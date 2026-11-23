@@ -1,10 +1,10 @@
-const CACHE_NAME = "sn777-v133-responsive";
+const CACHE_NAME = "sn777-v134-responsive";
 const CORE_ASSETS = [
   "/",
   "/index.html",
   "/manifest.json",
   "/assets/index-C0XgLZC6-v3.css",
-  "/assets/index-sn777-v13-nagad.js?v=1795116000000",
+  "/assets/index-sn777-v13-nagad.js?v=1795447033514",
   "/assets/live_chat_logo.webp",
   "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjessdgCem41qNzUMd-yLXBtZkKt7AEkcXAfSy-yT3uFnvb9fXXr_c_JUbyRu9EHjYNDeQ0lC3yZDMLPGq_zduTog1I-lsIzizfBRdHLOKo6hDOkE1CFg8JEnZ_ZtIa9BZCxOEn_oZhl0dvS9FLiR2tUNWXb5rUm_DBgBr6boxLhwhrkDQ-NvnoLVpes1nQ/s120/provider-awcv2_jili.png",
   "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjI37CASsqIXZ9FS68u2Vo0NOt4Kh2wxaRBLgwFLSlEWttNEJI1Sy2uOv7Ut7NgkY3PjbkHxIJrOh1n-_MjSh7uTm1DHxoFw7g9eKa1-Jo88r3OVmeLy6aozGzGiyi1pSypzy4S5_TST0XRI4PxuUaI7KZjihP8U0ei0rF_v455jVrfKH2TM6R6CChZ3lDh/s120/provider-awcv2_fc.png",
