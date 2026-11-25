@@ -1,9 +1,10 @@
 <?php
 $balanceUrl = "https://mch.go-pay.cyou/balance_api.php";
-$secretKey  = "77a2d3a02360d495a1b07abfe5b196e8";
+$secretKey  = getenv("GOPAY_SECRET_KEY") ?: "";
+$appId      = getenv("GOPAY_APP_ID") ?: "";
 
 $postData = [
-    'app_id'    => 'GP_47479521',
+    'app_id'    => $appId,
     'timestamp' => date('Y-m-d H:i:s')
 ];
 

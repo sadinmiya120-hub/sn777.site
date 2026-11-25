@@ -3234,6 +3234,13 @@ async function approveAndCreditDeposit(orderNoInput: string, paidAmountOverride?
         ]).catch(() => null);
         if (depSnap && depSnap.exists) depData = depSnap.data();
       }
+      if (!depData && defaultDb && Date.now() >= firestoreQuotaExceededUntil) {
+        const qByMch = await Promise.race([
+          defaultDb.collection("deposits").where("gopayMchOrderNo", "==", cleanOrderNo).limit(1).get(),
+          new Promise<any>((_, r) => setTimeout(() => r(new Error("timeout")), 1500))
+        ]).catch(() => null);
+        if (qByMch && !qByMch.empty) depData = qByMch.docs[0].data();
+      }
       if (!depData && Date.now() >= firestoreQuotaExceededUntil) {
         depData = await firestoreRestGet("deposits", cleanOrderNo, DEFAULT_FS_DB_ID);
       }
@@ -4888,7 +4895,7 @@ function renderGoPayPortalHtml(): string {
   <title>GoPay Pay-in Integration Diagnostics</title>
   <style>
     body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; padding: 24px; }
-    .wrap { max-width: 880px; margin: 0 auto; }
+    .wrap { max-width: 920px; margin: 0 auto; }
     .card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 20px; margin-bottom: 18px; }
     h1 { margin: 0 0 6px; font-size: 20px; color: #f8fafc; }
     h2 { margin: 0 0 12px; font-size: 15px; color: #93c5fd; }
@@ -4896,9 +4903,13 @@ function renderGoPayPortalHtml(): string {
     th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #334155; }
     th { color: #94a3b8; font-weight: 600; }
     code { background: #0f172a; padding: 2px 6px; border-radius: 6px; color: #38bdf8; }
-    .btn { background: #0284c7; color: #fff; border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 600; cursor: pointer; margin-right: 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .btn { background: #0284c7; color: #fff; border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 600; cursor: pointer; }
     .btn:hover { background: #0369a1; }
-    pre { background: #020617; padding: 12px; border-radius: 10px; overflow: auto; font-size: 12px; color: #cbd5e1; margin-top: 12px; }
+    .btn-tab { background: #0f172a; color: #94a3b8; border: 1px solid #334155; border-radius: 8px; padding: 7px 12px; font-weight: 600; cursor: pointer; }
+    .btn-tab.active { background: #0284c7; color: #fff; border-color: #0284c7; }
+    select, input { background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+    pre { background: #020617; padding: 12px; border-radius: 10px; overflow: auto; font-size: 12px; color: #cbd5e1; margin-top: 12px; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -4908,11 +4919,51 @@ function renderGoPayPortalHtml(): string {
       <div>Capture Endpoint: <code>POST https://mch.go-pay.cyou/pay.php</code> &middot; App ID: <code>${GOPAY_APP_ID}</code></div>
     </div>
     <div class="card">
-      <h2>Gateway Actions</h2>
-      <button class="btn" onclick="runCheck('/api/gopay/ping')">Ping Gateway</button>
-      <button class="btn" onclick="runCheck('/api/gopay/balance')">Check Merchant Balance</button>
-      <button class="btn" onclick="runCheck('/api/gopay/specs')">View Pay-in Specs</button>
+      <h2>Gateway Actions & Live Pay-in Test</h2>
+      <div class="row">
+        <button class="btn" onclick="runCheck('/api/gopay/ping')">Ping Gateway</button>
+        <button class="btn" onclick="runCheck('/api/gopay/balance')">Check Merchant Balance</button>
+        <button class="btn" onclick="runCheck('/api/gopay/specs')">View Pay-in Specs</button>
+        <button class="btn" onclick="runSimulateWebhook()">Simulate Webhook</button>
+      </div>
+      <div class="row">
+        <select id="testPayType">
+          <option value="2202">2202 — bKash (Min 500)</option>
+          <option value="2201">2201 — Nagad (Min 200)</option>
+        </select>
+        <input id="testAmount" type="number" value="500" min="200" step="1" placeholder="Amount (BDT)" />
+        <button class="btn" onclick="runTestCapture()">Test Live Capture</button>
+      </div>
       <pre id="out">Click a button to test the live GoPay server-side integration...</pre>
+    </div>
+    <div class="card">
+      <h2>Deposit Integration Code Examples</h2>
+      <div class="row">
+        <button class="btn-tab active" onclick="showLang('php', this)">PHP</button>
+        <button class="btn-tab" onclick="showLang('node', this)">Node.js</button>
+        <button class="btn-tab" onclick="showLang('python', this)">Python</button>
+        <button class="btn-tab" onclick="showLang('curl', this)">cURL</button>
+        <button class="btn" style="margin-left:auto" onclick="copyExample()">Copy Code</button>
+      </div>
+      <pre id="codeOut"></pre>
+    </div>
+    <div class="card">
+      <h2>Pay-in Response JSON Payload Examples</h2>
+      <div style="font-size:12px;color:#34d399;font-weight:700;margin-bottom:4px;">200 OK SUCCESS</div>
+      <pre>{
+  "respCode": "SUCCESS",
+  "tradeMsg": "request success",
+  "payUrl": "https://mch.go-pay.cyou/checkout.php?tradeNo=GP202608042000001234",
+  "pay_url": "https://mch.go-pay.cyou/checkout.php?tradeNo=GP202608042000001234",
+  "tradeNo": "GP202608042000001234",
+  "signType": "MD5",
+  "sign": "a0aafd9a10f927479c69a49bbfe60669"
+}</pre>
+      <div style="font-size:12px;color:#f87171;font-weight:700;margin:12px 0 4px;">400 FAIL</div>
+      <pre>{
+  "respCode": "FAIL",
+  "tradeMsg": "Signature verification failed"
+}</pre>
     </div>
     <div class="card">
       <h2>Pay-in Request Parameters</h2>
@@ -4933,8 +4984,165 @@ function renderGoPayPortalHtml(): string {
         </tbody>
       </table>
     </div>
+    <div class="card">
+      <h2>MD5 Signature Calculation &amp; Callback Listener (Webhook)</h2>
+      <ol style="font-size:13px;line-height:1.7;padding-left:18px;margin:0 0 14px;color:#cbd5e1;">
+        <li>Omit <code>sign</code>, <code>sign_type</code>, and <code>signType</code> keys.</li>
+        <li>Sort all remaining parameters alphabetically by key (A-Z) using <code>ksort</code>.</li>
+        <li>Format as raw query string <code>key1=value1&amp;key2=value2</code> (omit null or empty values).</li>
+        <li>Append secret merchant key at the end as <code>&amp;key=YOUR_SECRET_KEY</code>.</li>
+        <li>Compute lowercase MD5 hex digest.</li>
+      </ol>
+      <table>
+        <thead><tr><th>Callback Parameter</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>tradeResult</code></td><td>Status flag. <code>1</code> confirms successful user capture.</td></tr>
+          <tr><td><code>mchId</code></td><td>Your unique merchant App ID string.</td></tr>
+          <tr><td><code>mchOrderNo</code></td><td>Your original <code>mch_order_no</code> tracking reference.</td></tr>
+          <tr><td><code>amount</code></td><td>Successfully captured amount.</td></tr>
+          <tr><td><code>sign</code></td><td>MD5 authentication signature computed with your secret merchant key.</td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:12px;color:#94a3b8;margin-top:10px;">Webhook endpoint: <code>POST /gopay_notify.php</code> (returns lowercase <code>success</code> on verified capture or <code>fail</code>).</div>
+    </div>
   </div>
   <script>
+    const CODE_EXAMPLES = {
+      php: \`<?php
+$gatewayUrl = "https://mch.go-pay.cyou/pay.php";
+$secretKey  = getenv("GOPAY_SECRET_KEY") ?: "YOUR_SECRET_KEY";
+
+$postData = [
+    'app_id'         => '${GOPAY_APP_ID}',
+    'mch_order_no'   => 'ORD_' . time(),
+    'trade_amount'   => '500',
+    'pay_type'       => '2202', // 2202=bKash, 2201=Nagad
+    'goods_name'     => 'BKASH',
+    'notify_url'     => 'https://sn777.site/gopay_notify.php',
+    'page_url'       => 'https://sn777.site/return',
+    'mch_return_msg' => 'InvoiceRef_12',
+    'order_date'     => date('Y-m-d H:i:s')
+];
+
+ksort($postData);
+$signStr = "";
+foreach ($postData as $k => $v) {
+    if ($v !== '' && $v !== null) {
+        $signStr .= $k . "=" . $v . "&";
+    }
+}
+$signStr .= "key=" . $secretKey;
+$postData['sign'] = md5($signStr);
+$postData['sign_type'] = 'MD5';
+
+$ch = curl_init($gatewayUrl);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/x-www-form-urlencoded']);
+curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postData));
+$response = curl_exec($ch);
+curl_close($ch);
+
+$res = json_decode($response, true);
+if ($res && $res['respCode'] === 'SUCCESS') {
+    header("Location: " . ($res['payUrl'] ?? $res['payInfo']));
+    exit;
+}
+echo "Gateway Error: " . ($res['tradeMsg'] ?? 'Connection Failed');
+?>\`,
+      node: \`import crypto from "crypto";
+
+const gatewayUrl = "https://mch.go-pay.cyou/pay.php";
+const secretKey = process.env.GOPAY_SECRET_KEY || "YOUR_SECRET_KEY";
+
+const params = {
+  app_id: "${GOPAY_APP_ID}",
+  mch_order_no: "ORD_" + Math.floor(Date.now() / 1000),
+  trade_amount: 500,
+  pay_type: "2202", // 2202=bKash, 2201=Nagad
+  goods_name: "BKASH",
+  notify_url: "https://sn777.site/gopay_notify.php",
+  page_url: "https://sn777.site/return",
+  mch_return_msg: "InvoiceRef_12",
+  order_date: new Date().toISOString().replace("T", " ").slice(0, 19)
+};
+
+const signStr = Object.keys(params)
+  .filter((k) => params[k] !== "" && params[k] !== null && params[k] !== undefined)
+  .sort()
+  .map((k) => k + "=" + params[k])
+  .join("&") + "&key=" + secretKey;
+
+const body = new URLSearchParams({
+  ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+  sign: crypto.createHash("md5").update(signStr, "utf8").digest("hex").toLowerCase(),
+  sign_type: "MD5"
+});
+
+const res = await fetch(gatewayUrl, {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: body.toString()
+});
+const data = await res.json();
+console.log(data.respCode === "SUCCESS" ? data.payUrl || data.payInfo : data.tradeMsg);\`,
+      python: \`import hashlib, os, time, urllib.parse, urllib.request, json
+from datetime import datetime
+
+gateway_url = "https://mch.go-pay.cyou/pay.php"
+secret_key = os.environ.get("GOPAY_SECRET_KEY", "YOUR_SECRET_KEY")
+
+params = {
+    "app_id": "${GOPAY_APP_ID}",
+    "mch_order_no": f"ORD_{int(time.time())}",
+    "trade_amount": "500",
+    "pay_type": "2202",  # 2202=bKash, 2201=Nagad
+    "goods_name": "BKASH",
+    "notify_url": "https://sn777.site/gopay_notify.php",
+    "page_url": "https://sn777.site/return",
+    "mch_return_msg": "InvoiceRef_12",
+    "order_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+}
+
+sign_str = "&".join(f"{k}={params[k]}" for k in sorted(params) if params[k]) + f"&key={secret_key}"
+params["sign"] = hashlib.md5(sign_str.encode("utf-8")).hexdigest().lower()
+params["sign_type"] = "MD5"
+
+req = urllib.request.Request(
+    gateway_url,
+    data=urllib.parse.urlencode(params).encode("utf-8"),
+    headers={"Content-Type": "application/x-www-form-urlencoded"},
+    method="POST",
+)
+with urllib.request.urlopen(req, timeout=15) as resp:
+    res = json.loads(resp.read().decode("utf-8"))
+    print(res.get("payUrl") or res.get("payInfo") or res.get("tradeMsg"))\`,
+      curl: \`# Compute lowercase MD5 of sorted query string + "&key=YOUR_SECRET_KEY", then POST:
+curl -X POST "https://mch.go-pay.cyou/pay.php" \\\\
+  -H "Content-Type: application/x-www-form-urlencoded" \\\\
+  --data-urlencode "app_id=${GOPAY_APP_ID}" \\\\
+  --data-urlencode "mch_order_no=ORD_1795608400" \\\\
+  --data-urlencode "trade_amount=500" \\\\
+  --data-urlencode "pay_type=2202" \\\\
+  --data-urlencode "goods_name=BKASH" \\\\
+  --data-urlencode "notify_url=https://sn777.site/gopay_notify.php" \\\\
+  --data-urlencode "page_url=https://sn777.site/return" \\\\
+  --data-urlencode "mch_return_msg=InvoiceRef_12" \\\\
+  --data-urlencode "order_date=2026-11-25 12:00:00" \\\\
+  --data-urlencode "sign=YOUR_COMPUTED_MD5_HEX" \\\\
+  --data-urlencode "sign_type=MD5"\`
+    };
+    let activeLang = 'php';
+    function showLang(lang, btn) {
+      activeLang = lang;
+      document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      document.getElementById('codeOut').textContent = CODE_EXAMPLES[lang] || '';
+    }
+    function copyExample() {
+      const txt = document.getElementById('codeOut').textContent;
+      if (navigator.clipboard) navigator.clipboard.writeText(txt).catch(() => {});
+    }
     async function runCheck(url) {
       const out = document.getElementById('out');
       out.textContent = 'Loading ' + url + '...';
@@ -4946,6 +5154,40 @@ function renderGoPayPortalHtml(): string {
         out.textContent = String(e);
       }
     }
+    async function runTestCapture() {
+      const out = document.getElementById('out');
+      const payType = document.getElementById('testPayType').value;
+      const amount = Number(document.getElementById('testAmount').value || 500);
+      const goodsName = payType === '2201' ? 'NAGAD' : 'BKASH';
+      out.textContent = 'Sending POST /api/gopay/test-capture (' + goodsName + ' ' + amount + ' BDT)...';
+      try {
+        const res = await fetch('/api/gopay/test-capture', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pay_type: payType, goods_name: goodsName, trade_amount: amount })
+        });
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        out.textContent = String(e);
+      }
+    }
+    async function runSimulateWebhook() {
+      const out = document.getElementById('out');
+      out.textContent = 'Simulating signed POST /gopay_notify.php webhook...';
+      try {
+        const res = await fetch('/api/gopay/simulate-webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_no: 'ORD_DEMO_' + Date.now(), amount: 500, mch_return_msg: 'test_user_101' })
+        });
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        out.textContent = String(e);
+      }
+    }
+    showLang('php');
   </script>
 </body>
 </html>`;
@@ -5001,7 +5243,7 @@ app.post("/api/gopay/test-capture", async (req, res) => {
     });
 
     const result = await sendGoPayCaptureRequest(payload);
-    return res.json({
+    return res.status(result.success ? 200 : 400).json({
       ...result,
       sentPayload: payload.fullParams,
       signStr: payload.signStr.replace(/&key=[^&]+$/, "&key=***"),
@@ -5119,15 +5361,18 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
     const formattedPayType = isNagad ? "Nagad" : "Bkash";
 
     const minAmount = isNagad ? 200 : 500;
+    const maxAmount = 500000;
     const parsedAmount = rawAmountInput !== undefined && rawAmountInput !== null && String(rawAmountInput).trim() !== ""
       ? parseFloat(String(rawAmountInput))
       : minAmount;
     const amount = Number.isFinite(parsedAmount) ? Math.round(parsedAmount) : 0;
 
-    if (amount < minAmount) {
-      const noticeText = isNagad
-        ? "নগদে সর্বনিম্ন ডিপোজিট ২০০ টাকা। অনুগ্রহ করে ২০০ টাকা বা তার বেশি অ্যামাউন্ট দিয়ে চেষ্টা করুন।"
-        : "বিকাশে সর্বনিম্ন ডিপোজিট ৫০০ টাকা। অনুগ্রহ করে ৫০০ টাকা বা তার বেশি অ্যামাউন্ট দিয়ে চেষ্টা করুন।";
+    if (amount < minAmount || amount > maxAmount) {
+      const noticeText = amount > maxAmount
+        ? `সর্বোচ্চ ডিপোজিট ৳${maxAmount.toLocaleString()} টাকা। অনুগ্রহ করে সঠিক এমাউন্ট দিয়ে চেষ্টা করুন।`
+        : (isNagad
+          ? "নগদে সর্বনিম্ন ডিপোজিট ২০০ টাকা। অনুগ্রহ করে ২০০ টাকা বা তার বেশি অ্যামাউন্ট দিয়ে চেষ্টা করুন।"
+          : "বিকাশে সর্বনিম্ন ডিপোজিট ৫০০ টাকা। অনুগ্রহ করে ৫০০ টাকা বা তার বেশি অ্যামাউন্ট দিয়ে চেষ্টা করুন।");
       if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
         return res.status(400).json({
           success: false,
@@ -5169,9 +5414,14 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
 
     const primaryDomainOrigin = "https://sn777.site";
     const resolvedPageOrigin = previewOrigin || primaryDomainOrigin;
+    const envAppOrigin = process.env.APP_URL ? String(process.env.APP_URL).trim().replace(/\/+$/, "") : "";
+    const defaultNotifyUrl = process.env.GOPAY_NOTIFY_URL || `${envAppOrigin || primaryDomainOrigin}/gopay_notify.php`;
 
-    const notify_url = String(req.query.notify_url || req.body?.notify_url || process.env.GOPAY_NOTIFY_URL || `${primaryDomainOrigin}/gopay_notify.php`).trim();
-    const page_url = String(req.query.page_url || req.body?.page_url || `${resolvedPageOrigin}/return?order_no=${encodeURIComponent(order_no)}`).trim();
+    const isSafeHttpUrl = (u: string) => /^https?:\/\//i.test(u);
+    const reqNotifyUrl = String(req.query.notify_url || req.body?.notify_url || "").trim();
+    const reqPageUrl = String(req.query.page_url || req.body?.page_url || "").trim();
+    const notify_url = isSafeHttpUrl(reqNotifyUrl) ? reqNotifyUrl : defaultNotifyUrl;
+    const page_url = isSafeHttpUrl(reqPageUrl) ? reqPageUrl : `${resolvedPageOrigin}/return?order_no=${encodeURIComponent(order_no)}`;
     const mch_return_msg = String(req.query.mch_return_msg || req.body?.mch_return_msg || rawUid).trim().substring(0, 64);
     const order_date = String(req.query.order_date || req.body?.order_date || formatGoPayOrderDate()).trim();
 
@@ -5254,13 +5504,16 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
     if (adminApp) {
       const db = adminApp.firestore();
       const dbCustom = getCustomFirestoreDb();
-      await Promise.allSettled([
-        db.collection("deposits").doc(order_no).set(pendingTx, { merge: true }),
-        db.collection("transactions").doc(order_no).set(pendingTx, { merge: true }),
-        dbCustom ? dbCustom.collection("deposits").doc(order_no).set(pendingTx, { merge: true }) : Promise.resolve(),
-        dbCustom ? dbCustom.collection("transactions").doc(order_no).set(pendingTx, { merge: true }) : Promise.resolve(),
-        firestoreRestPatch("deposits", order_no, pendingTx, DEFAULT_FS_DB_ID),
-        CUSTOM_FS_DB_ID !== DEFAULT_FS_DB_ID ? firestoreRestPatch("deposits", order_no, pendingTx, CUSTOM_FS_DB_ID) : Promise.resolve(false)
+      await Promise.race([
+        Promise.allSettled([
+          db.collection("deposits").doc(order_no).set(pendingTx, { merge: true }),
+          db.collection("transactions").doc(order_no).set(pendingTx, { merge: true }),
+          dbCustom ? dbCustom.collection("deposits").doc(order_no).set(pendingTx, { merge: true }) : Promise.resolve(),
+          dbCustom ? dbCustom.collection("transactions").doc(order_no).set(pendingTx, { merge: true }) : Promise.resolve(),
+          firestoreRestPatch("deposits", order_no, pendingTx, DEFAULT_FS_DB_ID),
+          CUSTOM_FS_DB_ID !== DEFAULT_FS_DB_ID ? firestoreRestPatch("deposits", order_no, pendingTx, CUSTOM_FS_DB_ID) : Promise.resolve(false)
+        ]),
+        new Promise((resolve) => setTimeout(resolve, 1200))
       ]).catch(e => console.error("Firestore save error:", e));
 
       console.log(`[GoPay Deposit Sync] Order ${order_no} synced to Firestore.`);
@@ -5318,15 +5571,13 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
     } else {
       // Gateway limit error (e.g. ORDER_AMT_SINGLE_PEN_LIMIT:400-50001) or origin unreachable
       // Smoothly redirect API and browser requests to Cashier so 200/300 Tk deposits complete without error
-      console.warn(`[GoPay Pay-in Notice] Gateway returned http ${gatewayResult.httpStatus}, msg: ${gatewayResult.tradeMsg}. Redirecting to Cashier.`);
+      console.warn(`[GoPay Pay-in Notice] Gateway returned http ${gatewayResult.httpStatus}, msg: ${gatewayResult.tradeMsg}.`);
 
       if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
-        return res.json({
-          respCode: "SUCCESS",
-          success: true,
-          tradeMsg: "Cashier Fallback",
-          payUrl: fallbackUrl,
-          pay_url: fallbackUrl,
+        return res.status(400).json({
+          respCode: "FAIL",
+          success: false,
+          tradeMsg: gatewayResult.tradeMsg || "Signature verification failed",
           order_no: order_no,
           mch_order_no: order_no
         });
@@ -5343,10 +5594,10 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
     const uid = req.query?.uid || req.body?.uid || "user";
 
     if (req.xhr || req.headers.accept?.includes("application/json") || req.path.includes("/api/")) {
-      return res.json({
-        respCode: "SUCCESS",
-        success: true,
-        payUrl: `/cashier.php?order_no=${encodeURIComponent(order_no)}&amount=${encodeURIComponent(amount)}&method=${encodeURIComponent(method)}&uid=${encodeURIComponent(uid)}`,
+      return res.status(400).json({
+        respCode: "FAIL",
+        success: false,
+        tradeMsg: err?.message || "Connection Failed",
         order_no
       });
     }
@@ -5674,10 +5925,16 @@ app.all(["/gopay_notify.php", "/callback.php", "/notify.php", "/api/gopay-notify
     const order_no = String(rawData.mchOrderNo || rawData.mch_order_no || "").trim();
     const amount = parseFloat(String(rawData.amount || rawData.trade_amount || 0)) || 0;
 
-    console.log(`[Gateway Webhook] Callback: mchId=${rawData.mchId || ""}, order=${order_no}, amount=${amount}, success=${isSuccess}, signMatch=${calculatedSign === receivedSign}`);
+    const signMatches = Boolean(
+      receivedSign &&
+      calculatedSign.length === receivedSign.length &&
+      crypto.timingSafeEqual(Buffer.from(calculatedSign, "utf8"), Buffer.from(receivedSign, "utf8"))
+    );
 
-    if (!receivedSign || calculatedSign !== receivedSign) {
-      console.warn(`[Gateway Webhook] Signature mismatch! calc: ${calculatedSign}, recv: ${receivedSign}`);
+    console.log(`[Gateway Webhook] Callback: mchId=${rawData.mchId || ""}, order=${order_no}, amount=${amount}, success=${isSuccess}, signMatch=${signMatches}`);
+
+    if (!signMatches) {
+      console.warn(`[Gateway Webhook] Signature mismatch for order ${order_no}`);
       return res.status(200).send("fail");
     }
 

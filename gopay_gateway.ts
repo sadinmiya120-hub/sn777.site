@@ -44,7 +44,7 @@ export function calculateGoPaySignDetails(params: Record<string, any>, secretKey
     .sort();
 
   const parts = keys.map(k => `${k}=${params[k]}`);
-  const signStr = parts.join("&") + `&key=${secretKey}`;
+  const signStr = (parts.length > 0 ? parts.join("&") + "&" : "") + `key=${secretKey}`;
   const sign = crypto.createHash("md5").update(signStr, "utf8").digest("hex").toLowerCase();
   return { sign, signStr };
 }

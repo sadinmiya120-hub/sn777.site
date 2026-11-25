@@ -1,6 +1,6 @@
 <?php
 $rawData = $_POST;
-$secretKey = "77a2d3a02360d495a1b07abfe5b196e8";
+$secretKey = getenv("GOPAY_SECRET_KEY") ?: "";
 
 if (empty($rawData)) {
     die("fail");
