@@ -5718,7 +5718,8 @@ function renderLimitNoticeHtml(customMsg?: string): string {
 }
 
 // Helper for rendering Native Cashier HTML
-function renderCashierHtml(order_no: string, amount: number, method: string, uid: string, walletNum: string = "01996306610"): string {
+function renderCashierHtml(order_no: string, amount: number, method: string, uid: string, walletNum: string = ""): string {
+  const SHOW_AUTOPAY_NUMBER = false;
   const isNagad = String(method).toLowerCase().includes("nagad");
   const brandName = isNagad ? "নগদ (Nagad)" : "বিকাশ (bKash)";
   const brandColor = isNagad ? "#eb1c24" : "#e2136e";
@@ -5763,10 +5764,11 @@ function renderCashierHtml(order_no: string, amount: number, method: string, uid
     </div>
 
     <div class="brand-banner">
-      <div>${brandName} Send Money / Cash Out</div>
+      <div>${brandName}</div>
       <div style="font-size:12px;opacity:0.9">ইনস্ট্যান্ট প্রসেসিং</div>
     </div>
 
+    ${SHOW_AUTOPAY_NUMBER && walletNum ? `
     <div class="alert-box">
       ⚠️ আপনার ${brandName} মোবাইল অ্যাপ বা ডায়াল কোড ব্যবহার করে নিচের নাম্বারে <strong>৳${amount}</strong> টাকা প্রদান করুন এবং TrxID বসিয়ে সাবমিট করুন।
     </div>
@@ -5792,6 +5794,14 @@ function renderCashierHtml(order_no: string, amount: number, method: string, uid
         কনফার্ম ডিপোজিট ৳ ${amount}
       </button>
     </form>
+    ` : `
+    <div class="section" style="padding:20px 16px;">
+      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:14px;padding:18px 16px;text-align:center;">
+        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:6px;">লিমিট শেষ হয়ে গিয়েছে</div>
+        <div style="font-size:13px;font-weight:600;color:#475569;line-height:1.55;">অটো পে-এর লিমিট শেষ হয়ে গিয়েছে। অনুগ্রহ করে একটু অপেক্ষা করুন অথবা ফিরে গিয়ে গেটওয়ে পে (Gateway Pay) ব্যবহার করুন।</div>
+      </div>
+    </div>
+    `}
 
     <div class="back-link">
       <a href="/">← মূল পাতায় ফিরে যান</a>
