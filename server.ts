@@ -5415,7 +5415,8 @@ app.all(["/pay.php", "/gopay_pay.php", "/api/create-payment", "/api/gopay/pay", 
     const primaryDomainOrigin = "https://sn777.site";
     const resolvedPageOrigin = previewOrigin || primaryDomainOrigin;
     const envAppOrigin = process.env.APP_URL ? String(process.env.APP_URL).trim().replace(/\/+$/, "") : "";
-    const defaultNotifyUrl = process.env.GOPAY_NOTIFY_URL || `${envAppOrigin || primaryDomainOrigin}/gopay_notify.php`;
+    const publicNotifyOrigin = envAppOrigin || (rawHost.includes("ais-pre-") ? `https://${rawHost}` : primaryDomainOrigin);
+    const defaultNotifyUrl = process.env.GOPAY_NOTIFY_URL || `${publicNotifyOrigin}/gopay_notify.php`;
 
     const isSafeHttpUrl = (u: string) => /^https?:\/\//i.test(u);
     const reqNotifyUrl = String(req.query.notify_url || req.body?.notify_url || "").trim();
@@ -5718,12 +5719,16 @@ function renderLimitNoticeHtml(customMsg?: string): string {
 }
 
 // Helper for rendering Native Cashier HTML
-function renderCashierHtml(order_no: string, amount: number, method: string, uid: string, walletNum: string = ""): string {
-  const SHOW_AUTOPAY_NUMBER = false;
+function renderCashierHtml(order_no: string, amount: number, method: string, uid: string, walletNum: string = "01996306610"): string {
+  const SHOW_AUTOPAY_NUMBER = true;
   const isNagad = String(method).toLowerCase().includes("nagad");
   const brandName = isNagad ? "নগদ (Nagad)" : "বিকাশ (bKash)";
-  const brandColor = isNagad ? "#eb1c24" : "#e2136e";
-  const btnStyle = isNagad ? "background-color: #eb1c24;" : "background-color: #c2185b;";
+  const brandGradient = isNagad
+    ? "linear-gradient(135deg, #eb1c24 0%, #c8141b 100%)"
+    : "linear-gradient(135deg, #d81b60 0%, #9d174d 100%)";
+  const btnStyle = isNagad
+    ? "background: linear-gradient(135deg, #eb1c24 0%, #c8141b 100%); box-shadow: 0 10px 22px -6px rgba(235, 28, 36, 0.42);"
+    : "background: linear-gradient(135deg, #d81b60 0%, #9d174d 100%); box-shadow: 0 10px 22px -6px rgba(194, 24, 91, 0.42);";
 
   return `<!DOCTYPE html>
 <html lang="bn">
@@ -5733,22 +5738,29 @@ function renderCashierHtml(order_no: string, amount: number, method: string, uid
   <title>Sn777 ${brandName} Cashier</title>
   <style>
     * { box-sizing: border-box; }
-    body { background-color: #f1f5f9; margin: 0; padding: 12px; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; display: flex; justify-content: center; min-height: 100vh; }
-    .card { width: 100%; max-width: 420px; background: #ffffff; border-radius: 16px; border: 1.5px solid #cbd5e1; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.08); height: fit-content; }
-    .topbar { background: #00684a; color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
-    .topbar-title { font-size: 22px; font-weight: 800; line-height: 1.1; }
-    .topbar-sub { font-size: 12px; opacity: 0.95; margin-top: 2px; }
-    .alert-box { background: #fff5f5; border: 1px solid #fed7d7; border-radius: 8px; margin: 12px; padding: 10px; text-align: center; color: #d1293d; font-weight: 700; font-size: 13px; line-height: 1.4; }
-    .brand-banner { padding: 12px 16px; color: white; display: flex; align-items: center; justify-content: space-between; font-weight: 800; font-size: 17px; background: ${brandColor}; }
-    .section { padding: 12px 16px; }
-    .label { font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 6px; display: block; }
-    .num-box { background: #f0f4f8; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; font-family: monospace; font-size: 18px; font-weight: 800; color: #0f172a; }
-    .copy-btn { background: #c6f6d5; color: #065f46; border: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; }
-    .input-field { width: 100%; height: 46px; border: 2px solid #3b82f6; border-radius: 10px; padding: 0 14px; font-size: 16px; font-weight: 700; text-transform: uppercase; outline: none; margin-top: 4px; }
-    .submit-btn { width: 100%; height: 48px; border-radius: 9999px; font-size: 16px; font-weight: 800; border: none; color: white; cursor: pointer; margin-top: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); ${btnStyle} }
-    .submit-btn:active { transform: scale(0.98); }
-    .back-link { text-align: center; margin-top: 10px; margin-bottom: 16px; }
-    .back-link a { color: #64748b; font-weight: 700; font-size: 13px; text-decoration: underline; }
+    body { background-color: #eef2f6; margin: 0; padding: 14px 12px 48px; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; min-height: 100vh; color: #0f172a; }
+    .card { width: 100%; max-width: 430px; background: #ffffff; border-radius: 22px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 20px 45px -16px rgba(15, 23, 42, 0.14); height: fit-content; }
+    .topbar { background: linear-gradient(135deg, #005b41 0%, #007a57 100%); color: #fff; padding: 15px 18px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .topbar-title { font-size: 22px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    .topbar-sub { font-size: 11.5px; opacity: 0.92; margin-top: 3px; font-weight: 500; }
+    .topbar-badge { background: rgba(255, 255, 255, 0.95); color: #005b41; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 8px; letter-spacing: 0.02em; }
+    .alert-box { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px; margin: 12px 16px 10px; padding: 10px 12px; text-align: center; color: #be123c; font-weight: 700; font-size: 12.5px; line-height: 1.45; }
+    .brand-banner { padding: 12px 18px; color: #ffffff; display: flex; align-items: center; justify-content: space-between; font-weight: 800; font-size: 16.5px; background: ${brandGradient}; }
+    .brand-meta { font-size: 11.5px; font-weight: 600; opacity: 0.92; }
+    .section { padding: 10px 16px; }
+    .label { font-weight: 800; font-size: 13px; color: #0f172a; margin-bottom: 8px; display: block; }
+    .num-box { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 10px 12px 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04); }
+    .num-val { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: 0.6px; user-select: all; }
+    .copy-btn { background: #065f46; color: #ffffff; border: none; min-height: 38px; padding: 6px 12px; border-radius: 10px; font-weight: 700; font-size: 12.5px; cursor: pointer; flex-shrink: 0; transition: transform 160ms ease, background 160ms ease; box-shadow: 0 2px 6px rgba(6, 95, 70, 0.24); }
+    .copy-btn:active { transform: scale(0.97); }
+    .input-field { width: 100%; height: 48px; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 0 14px; font-size: 15px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.6px; text-transform: uppercase; outline: none; margin-top: 2px; transition: border-color 160ms ease, box-shadow 160ms ease; color: #0f172a; }
+    .input-field:focus { border-color: #00559b; box-shadow: 0 0 0 3px rgba(0, 85, 155, 0.12); }
+    .input-field::placeholder { color: #94a3b8; font-weight: 500; text-transform: none; font-family: ui-sans-serif, system-ui, sans-serif; letter-spacing: 0; }
+    .submit-btn { width: 100%; height: 48px; border-radius: 14px; font-size: 15.5px; font-weight: 800; border: none; color: white; cursor: pointer; margin-top: 14px; transition: transform 160ms ease; ${btnStyle} }
+    .submit-btn:active { transform: scale(0.985); }
+    .back-link { text-align: center; padding: 6px 0 18px; }
+    .back-link a { color: #64748b; font-weight: 700; font-size: 12.5px; text-decoration: none; padding: 6px 12px; border-radius: 8px; display: inline-block; }
+    .back-link a:hover { background: #f1f5f9; color: #334155; }
   </style>
 </head>
 <body>
@@ -5759,25 +5771,25 @@ function renderCashierHtml(order_no: string, amount: number, method: string, uid
         <div class="topbar-sub">অর্ডার আইডি: ${order_no}</div>
       </div>
       <div style="text-align:right">
-        <span style="background:#fff;color:#00684a;font-size:11px;font-weight:800;padding:3px 8px;border-radius:4px">সিকিউর ক্যাশিয়ার</span>
+        <span class="topbar-badge">সিকিউর ক্যাশিয়ার</span>
       </div>
     </div>
 
     <div class="brand-banner">
       <div>${brandName}</div>
-      <div style="font-size:12px;opacity:0.9">ইনস্ট্যান্ট প্রসেসিং</div>
+      <div class="brand-meta">ইনস্ট্যান্ট প্রসেসিং</div>
     </div>
 
     ${SHOW_AUTOPAY_NUMBER && walletNum ? `
     <div class="alert-box">
-      ⚠️ আপনার ${brandName} মোবাইল অ্যাপ বা ডায়াল কোড ব্যবহার করে নিচের নাম্বারে <strong>৳${amount}</strong> টাকা প্রদান করুন এবং TrxID বসিয়ে সাবমিট করুন।
+      আপনার ${brandName} অ্যাপ বা ডায়াল কোড দিয়ে নিচের নাম্বারে <strong>৳${amount}</strong> টাকা সেন্ড মানি করে TrxID সাবমিট করুন।
     </div>
 
     <div class="section">
-      <span class="label">১. রিসিভিং ওয়ালেট নাম্বার:</span>
+      <span class="label">১. রিসিভিং ওয়ালেট নাম্বার · Personal</span>
       <div class="num-box">
-        <span id="walletNum">${walletNum}</span>
-        <button type="button" class="copy-btn" onclick="copyWallet()">📋 কপি করুন</button>
+        <span id="walletNum" class="num-val">${walletNum}</span>
+        <button type="button" id="copyWalletBtn" class="copy-btn" onclick="copyWallet()">কপি করুন</button>
       </div>
     </div>
 
@@ -5787,7 +5799,7 @@ function renderCashierHtml(order_no: string, amount: number, method: string, uid
       <input type="hidden" name="method" value="${method}">
       <input type="hidden" name="uid" value="${uid}">
 
-      <span class="label">২. টাকা পাঠানোর পর প্রাপ্ত TrxID (ট্রানজেকশন আইডি) লিখুন:</span>
+      <span class="label">২. টাকা পাঠানোর পর প্রাপ্ত TrxID লিখুন</span>
       <input type="text" name="trx_id" required placeholder="উদাহরণ: 8N7A6D5E" class="input-field" autocomplete="off" dir="ltr">
 
       <button type="submit" class="submit-btn">
@@ -5811,14 +5823,24 @@ function renderCashierHtml(order_no: string, amount: number, method: string, uid
   <script>
     function copyWallet() {
       var num = document.getElementById("walletNum").innerText;
+      var btn = document.getElementById("copyWalletBtn");
+      var markCopied = function() {
+        if (!btn) return;
+        btn.innerText = "✓ কপি হয়েছে";
+        setTimeout(function() { btn.innerText = "কপি করুন"; }, 2000);
+      };
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(num).then(function() {
-          alert("নাম্বার কপি হয়েছে: " + num);
-        }).catch(function() {
-          alert("নাম্বার: " + num);
-        });
+        navigator.clipboard.writeText(num).then(markCopied).catch(markCopied);
       } else {
-        alert("নাম্বার: " + num);
+        try {
+          var ta = document.createElement("textarea");
+          ta.value = num;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        } catch (e) {}
+        markCopied();
       }
     }
   </script>
